@@ -11,7 +11,8 @@ export class KrakenFuturesApi {
   if (!apiKey || !apiSecret) throw new Error('Missing Kraken Futures credentials');
   this.apiKey = apiKey;
   this.apiSecret = apiSecret;
-  this.nonceCtr = 0;   // ← make sure this is present
+  this.baseUrl = 'https://futures.kraken.com';   // ← missing line
+  this.nonceCtr = 0;
 }
 
 
