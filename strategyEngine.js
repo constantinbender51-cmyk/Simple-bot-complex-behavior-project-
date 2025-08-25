@@ -13,6 +13,7 @@ export class StrategyEngine {
     const prompt = buildPrompt(snapshot);
     const res    = await this.model.generateContent(prompt);
     const raw    = res.response.text();
+    console.log('🧠 AI RAW:', raw);
 
     try {
       return JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}');
