@@ -5,7 +5,7 @@
   "description": "AI-driven Kraken Futures bot with Redis memory",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node scheduler.js",
     "dev": "node --watch index.js"
   },
   "dependencies": {
