@@ -40,9 +40,11 @@ export async function runOnce() {
     // Execute the action specified by the brain
     await interpret(plan.action);
     
-    // Pass the entire plan, not just the nextCtx, to saveContext
+    // Save the new context and journal data in one single call
     await saveContext({ 
-        plan: plan,
+        nextCtx: plan.nextCtx,
+        reason: plan.reason,
+        action: plan.action,
         marketData: snap
     });
     
