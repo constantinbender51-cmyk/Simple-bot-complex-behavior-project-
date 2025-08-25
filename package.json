@@ -5,7 +5,7 @@
   "main": "bot.js",
   "type": "module",
   "scripts": {
-    "start": "node backtest.js",
+    "start": "node bot.js",
     "_start-live-bot": "node bot.js",
     "_fetch-data": "node fetch_data.js",
     "_backtest": "node backtest.js",
