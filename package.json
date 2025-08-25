@@ -2,13 +2,16 @@
   "name": "sbcb",
   "version": "1.0.0",
   "type": "module",
+  "description": "Stateless, AI-driven multi-step Kraken Futures bot",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "node --watch index.js"
   },
   "dependencies": {
     "axios": "^1.7.2",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "@google/generative-ai": "^0.15.0"
   },
   "engines": {
     "node": ">=18"
