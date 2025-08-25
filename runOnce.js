@@ -4,6 +4,7 @@ import { decidePlan }        from './decisionEngine.js';
 import { interpret }         from './interpreter.js';
 import { saveContext }       from './context.js';
 import KrakenFuturesApi      from './krakenApi.js';
+import { kv }                from './redis.js';
 
 const PAIR = 'PF_XBTUSD';
 
@@ -19,7 +20,7 @@ async function fetchOHLC(intervalMinutes, count) {
 export async function runOnce() {
   try {
     const keyToday = `calls_${new Date().toISOString().slice(0,10)}`;
-    let callsSoFar = +(await KV.get(keyToday)) || 0;
+    let callsSoFar = +(await kv.get(keyToday)) || 0;
     const limitPerDay = 500;
     const callsLeft   = limitPerDay - callsSoFar;
     
@@ -36,7 +37,7 @@ export async function runOnce() {
     });
     console.log('📋 PLAN:', plan);
     await interpret(plan);
-    await KV.set(keyToday, callsSoFar + 1);
+    await kv.set(keyToday, callsSoFar + 1);
   } catch (e) {
     console.error('runOnce failed:', e);
   }
