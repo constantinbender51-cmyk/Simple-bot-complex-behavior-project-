@@ -28,7 +28,6 @@ export async function runOnce() {
     const ctx = await loadContext();
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
 
-    // Give all data to the brain and get a plan back
     const plan = await decidePlan({
         markPrice: snap.markPrice,
         position:  snap.position,
@@ -41,8 +40,11 @@ export async function runOnce() {
     // Execute the action specified by the brain
     await interpret(plan.action);
     
-    // Save the new state for the next run
-    await saveContext({ nextCtx: plan.nextCtx, reason: plan.reason });
+    // Pass the entire plan, not just the nextCtx, to saveContext
+    await saveContext({ 
+        plan: plan,
+        marketData: snap
+    });
     
     await kv.set(keyToday, callsSoFar + 1);
   } catch (e) {
