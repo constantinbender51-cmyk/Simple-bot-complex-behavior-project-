@@ -4,6 +4,9 @@ import { decidePlan }        from './decisionEngine.js';   // wraps StrategyEngi
 import { sendMarketOrder }   from './execution.js';
 import { saveContext }       from './context.js';
 import KrakenFuturesApi from './krakenApi.js';
+import axios from 'axios';
+
+const SPOT_URL = 'https://api.kraken.com/0/public/OHLC';
 
 // inside runOnce.js, right after imports
 const test = await new KrakenFuturesApi(
@@ -55,12 +58,14 @@ async function fetchOHLC(intervalMinutes, candleCount) {
   const now   = Date.now();
   const since = Math.floor((now - intervalMinutes * 60_000 * candleCount) / 1000);
 
-  const raw = await api.fetchKrakenData({
-    pair: 'XBTUSD',
-    interval: intervalMinutes,
-    since
+  const { data } = await axios.get(SPOT_URL, {
+    params: { pair: 'XBTUSD', interval: intervalMinutes, since }
   });
+  if (data.error?.length) throw new Error(data.error.join(', '));
 
-  if (!raw) throw new Error('fetchKrakenData returned null');
-  return raw;
+  const key = Object.keys(data.result).find(k => k !== 'last');
+  return (data.result[key] || []).map(o => ({
+    date: new Date(o[0] * 1000).toISOString(),
+    open: +o[1], high: +o[2], low: +o[3], close: +o[4], volume: +o[6]
+  }));
 }
