@@ -7,29 +7,29 @@ import KrakenFuturesApi      from './krakenApi.js';
 
 const PAIR = 'PF_XBTUSD';
 
-// simple in-memory cache so we don’t hammer the history endpoint
-let lastInterval = 60;   // default 1-hour candles
-let lastCandles  = null;
+// in-memory caches (reset on every Railway container start)
+let lastInterval   = 60;   // fallback
+let lastCandles    = null;
 
 export async function runOnce() {
   try {
     log.info('=== cycle start ===');
 
-    // 1️⃣ initial snapshot
+    // 1️⃣ fresh market snapshot
     const snap = await getMarketSnapshot(PAIR);
 
-    // 2️⃣ ask AI for plan & desired interval
+    // 2️⃣ ask AI for plan & preferred OHLC parameters
     let plan = await decidePlan({ ...snap, ohlc: lastCandles });
 
-    // 3️⃣ re-fetch OHLC if AI wants different interval
-    if (plan.ohlcInterval && plan.ohlcInterval !== lastInterval) {
-      log.info(`Switching to ${plan.ohlcInterval}m candles`);
-      lastInterval = plan.ohlcInterval;
-      lastCandles  = await fetchOHLC(plan.ohlcInterval);
+    // 3️⃣ re-fetch OHLC if AI changed interval or count
+    if (plan.intervalMinutes && plan.candleCount) {
+      log.info(`AI requesting ${plan.candleCount} candles @ ${plan.intervalMinutes}m`);
+      lastInterval = plan.intervalMinutes;
+      lastCandles  = await fetchOHLC(plan.intervalMinutes, plan.candleCount);
       plan         = await decidePlan({ ...snap, ohlc: lastCandles });
     }
 
-    // 4️⃣ execute steps
+    // 4️⃣ execute the resulting steps
     if (plan.steps?.length) {
       await executePlan(plan.steps, PAIR);
     } else {
@@ -43,27 +43,28 @@ export async function runOnce() {
 }
 
 /* -------------------------------------------------------------- */
-/* private helpers                                                */
+/* helper – fetch OHLC                                            */
 /* -------------------------------------------------------------- */
-async function fetchOHLC(intervalMinutes) {
-  const api = new KrakenFuturesApi(
+async function fetchOHLC(intervalMinutes, candleCount) {
+  const api   = new KrakenFuturesApi(
     process.env.KRAKEN_API_KEY,
     process.env.KRAKEN_SECRET_KEY
   );
-
   const now   = Date.now();
-  const since = Math.floor((now - 1000 * 60 * 60 * 24 * 3) / 1000); // 3 days back
-  const res   = await api.getHistory({
+  const since = Math.floor((now - intervalMinutes * 60_000 * candleCount) / 1000);
+
+  const res = await api.getHistory({
     symbol: PAIR,
     resolution: intervalMinutes,
     from: since
   });
-  return res.history?.map(c => ({
-    open:  +c.open,
-    high:  +c.high,
-    low:   +c.low,
-    close: +c.close,
-    volume: +c.volume,
+
+  return (res.history || []).map(c => ({
+    open:      +c.open,
+    high:      +c.high,
+    low:       +c.low,
+    close:     +c.close,
+    volume:    +c.volume,
     timestamp: c.timestamp
-  })) || [];
+  }));
 }
