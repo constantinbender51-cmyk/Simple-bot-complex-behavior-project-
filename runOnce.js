@@ -1,74 +1,32 @@
 // runOnce.js
 import { getMarketSnapshot } from './marketProxy.js';
-import { decidePlan }        from './decisionEngine.js';
-import { executePlan }       from './execution.js';
-import { log }               from './logger.js';
-import KrakenFuturesApi      from './krakenApi.js';
+import { decidePlan }        from './decisionEngine.js';   // wraps StrategyEngine
+import { sendMarketOrder }   from './execution.js';
+import { saveContext }       from './context.js';
 
 const PAIR = 'PF_XBTUSD';
 
-// in-memory caches (reset on every Railway container start)
-let lastInterval   = 60;   // fallback
-let lastCandles    = null;
-
 export async function runOnce() {
   try {
-    log.info('=== cycle start         ===');
-
-    // 1️⃣ fresh market snapshot
+    // 1️⃣  fetch snapshot
     const snap = await getMarketSnapshot(PAIR);
 
-    // 2️⃣ ask AI for plan & preferred OHLC parameters
-    let plan = await decidePlan({ ...snap, ohlc: lastCandles });
+    // 2️⃣  AI decides everything (side, size, nextCtx, interval, count)
+    const plan = await decidePlan({
+      ...snap,
+      ohlc: snap.ohlc,           // latest candles already in snapshot
+      intervalMinutes: snap.intervalMinutes || 60
+    });
 
-    // 3️⃣ re-fetch OHLC if AI changed interval or count
-    if (plan.intervalMinutes && plan.candleCount) {
-      log.info(`AI requesting ${plan.candleCount} candles @ ${plan.intervalMinutes}m`);
-      lastInterval = plan.intervalMinutes;
-      lastCandles  = await fetchOHLC(plan.intervalMinutes, plan.candleCount);
-      plan         = await decidePlan({ ...snap, ohlc: lastCandles });
+    // 3️⃣  execute the single market order (or flatten)
+    if (plan.side && plan.size !== 0) {
+      await sendMarketOrder({ pair: PAIR, side: plan.side, size: Math.abs(plan.size) });
     }
 
-    // 4️⃣ execute the resulting steps
-    if (plan.steps?.length) {
-      await executePlan(plan.steps, PAIR);
-    } else {
-      log.info('Plan says hold / no steps');
-    }
+    // 4️⃣  persist AI’s nextCtx + lastPlan
+    await saveContext({ ...snap.context, ...plan.nextCtx, lastPlan: plan });
 
-    log.info('=== cycle end      ===');
   } catch (err) {
-    log.error('runOnce failed:', err);
+    console.error('runOnce failed:', err);
   }
-}
-
-/* -------------------------------------------------------------- */
-/* helper – fetch OHLC                                            */
-/* -------------------------------------------------------------- */
-async function fetchOHLC(intervalMinutes, candleCount) {
-  const api   = new KrakenFuturesApi(
-    process.env.KRAKEN_API_KEY,
-    process.env.KRAKEN_SECRET_KEY
-  );
-
-  const now   = Date.now();
-  const since = Math.floor((now - intervalMinutes * 60_000 * candleCount) / 1000);
-
-  // ensure everything is a string/number
-  const params = {
-    symbol: `${PAIR}`,
-    resolution: Number(intervalMinutes),
-    from: since
-  };
-  console.log('fetchOHLC params:', params);
-  
-  const res = await api.getHistory(params);
-  return (res.history || []).map(c => ({
-    open:      +c.open,
-    high:      +c.high,
-    low:       +c.low,
-    close:     +c.close,
-    volume:    +c.volume,
-    timestamp: c.timestamp
-  }));
 }
