@@ -1,64 +1,37 @@
 // runOnce.js
 import { getMarketSnapshot } from './marketProxy.js';
-import { decidePlan }        from './decisionEngine.js';   // wraps StrategyEngine
-import { sendMarketOrder }   from './execution.js';
+import { decidePlan }        from './decisionEngine.js';
+import { interpret }         from './interpreter.js';
 import { saveContext }       from './context.js';
-import KrakenFuturesApi from './krakenApi.js';
-import axios from 'axios';
-
-const SPOT_URL = 'https://api.kraken.com/0/public/OHLC';
+import KrakenFuturesApi      from './krakenApi.js';
 
 const PAIR = 'PF_XBTUSD';
 
+async function fetchOHLC(intervalMinutes, count) {
+  const api = new KrakenFuturesApi(
+    process.env.KRAKEN_API_KEY,
+    process.env.KRAKEN_SECRET_KEY
+  );
+  const since = Math.floor(Date.now() / 1000 - intervalMinutes * 60 * count);
+  return api.fetchKrakenData({ pair: 'XBTUSD', interval: intervalMinutes, since });
+}
+
 export async function runOnce() {
   try {
-    // 1️⃣ fetch snapshot (no OHLC here)
     const snap = await getMarketSnapshot(PAIR);
+    const ctx  = await JSON.parse((await import('./context.js')).loadContext() || '{}');
+    const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
 
-    // 2️⃣ always fetch 30 daily candles
-    const ohlc = await fetchOHLC(1440, 30);
-    console.log('🧠 passing to AI:', ohlc.length, 'candles');
-    
-    // 3️⃣ AI decides everything
     const plan = await decidePlan({
       markPrice: snap.markPrice,
       position: snap.position,
       balance: snap.balance,
-      fills: snap.fills,
       ohlc,
-      intervalMinutes: 1440
+      apiCallLimitPerDay: 500
     });
 
-    // 4️⃣ execute single market order
-    if (plan.side && plan.size !== 0) {
-      await sendMarketOrder({ pair: PAIR, side: plan.side, size: Math.abs(plan.size) });
-    }
-
-    // 5️⃣ persist context
-    await saveContext({ ...snap.context, ...plan.nextCtx, lastPlan: plan });
-  } catch (err) {
-    console.error('runOnce failed:', err);
+    await interpret(plan);
+  } catch (e) {
+    console.error('runOnce failed:', e);
   }
-}
-/* ------------------------------------------------------------------ */
-/* helper – fetch OHLC                                                */
-/* ------------------------------------------------------------------ */
-async function fetchOHLC(intervalMinutes, maxCandles = 400) {
-  // clamp to 720 days max
-  const maxSec = Math.min(maxCandles * intervalMinutes * 60, 720 * 86400);
-  const since  = Math.floor(Date.now() / 1000 - maxSec);
-
-  const url = 'https://api.kraken.com/0/public/OHLC';
-  const params = { pair: 'XBTUSD', interval: intervalMinutes, since };
-
-  const { data } = await axios.get(url, { params });
-
-  if (data.error?.length) throw new Error(data.error.join(', '));
-
-  const key  = Object.keys(data.result).find(k => k !== 'last');
-  const list = data.result[key] || [];
-  return list.map(o => ({
-    date: new Date(o[0] * 1000).toISOString(),
-    open: +o[1], high: +o[2], low: +o[3], close: +o[4], volume: +o[6]
-  }));
 }
