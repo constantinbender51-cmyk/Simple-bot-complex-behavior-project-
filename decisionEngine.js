@@ -1,13 +1,27 @@
 // decisionEngine.js
-import { StrategyEngine } from './strategyEngine.js'; // will be upgraded below
-import { log } from './logger.js';
+import { StrategyEngine } from './strategyEngine.js';
+import { loadContext }   from './context.js';
 
-export async function decidePlan(marketSnapshot) {
-  // 1️⃣  Ask the AI what it wants
+export async function decidePlan({
+  markPrice,
+  position,
+  balance,
+  fills,
+  ohlc,
+  intervalMinutes
+}) {
+  const context = await loadContext();
+
   const engine = new StrategyEngine();
-  const plan   = await engine.generatePlan(marketSnapshot);
+  const plan   = await engine.generatePlan({
+    markPrice,
+    position,
+    balance,
+    fills,
+    ohlc,
+    intervalMinutes,
+    context
+  });
 
-  // 2️⃣  Validate & return
-  if (!Array.isArray(plan.steps)) plan.steps = [];
   return plan;
 }
