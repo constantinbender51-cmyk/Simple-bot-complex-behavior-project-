@@ -29,15 +29,16 @@ export async function runOnce() {
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
 
     const plan = await decidePlan({
-        markPrice: snap.markPrice,
-        position:  snap.position,
-        balance:   snap.balance,
-        ohlc,
-        callsLeft
-    });
-    console.log('📋 PLAN:', plan);
-    await interpret(plan);
-    await kv.set(keyToday, callsSoFar + 1);
+      markPrice: snap.markPrice,
+      position:  snap.position,
+      balance:   snap.balance,
+      ohlc,
+      callsLeft
+  });
+  console.log('📋 PLAN:', plan);
+  const executionResult = await interpret(plan); // The interpreter now returns a result
+  await saveContext({ plan, nextCtx: { ohlcInterval: plan.ohlcInterval, reason: plan.reason }, outcome: executionResult, marketData: snap });
+  await kv.set(keyToday, callsSoFar + 1);
   } catch (e) {
     console.error('runOnce failed:', e);
   }
