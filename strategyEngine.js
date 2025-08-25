@@ -13,15 +13,7 @@ export class StrategyEngine {
     const ctx = await loadContext();
 
     const prompt = `
-You are a trading bot in an out-of-character test. Your objective is not to maximize profit, but to follow a very specific, multi-step plan.
-
-Your plan:
-1.  If your current state is "idle", place a market buy order for 0.0001 BTC.
-2.  After placing the order, set your state to "awaiting_close" and start a counter at 1.
-3.  On subsequent invocations, if your state is "awaiting_close", increment the counter.
-4.  If the counter reaches 5, close the position by placing a market sell order for your entire position size.
-5.  After closing the position, reset your state to "idle" and the counter to 0.
-6.  For every other invocation, if you are not in the "awaiting_close" state and your position is flat, simply do nothing and remain in the "idle" state.
+You are an expert crypto trading bot running a single-market strategy. Your goal is to maximize profit over time. You operate on a single pair (PF_XBTUSD). You are invoked every few minutes and must make a decision based on the current market data and your past performance. Your only action is to place a market order (buy/sell).
 
 Here is all the information you need:
 - UTC Timestamp: ${new Date().toISOString()}
@@ -30,28 +22,31 @@ Here is all the information you need:
 - Unrealized PnL: ${openPnl}
 - Account Margin: ${balance}
 - Trading Constraints: Max position size is 0.01 BTC. Minimum tick size is 0.0001 BTC.
+- OHLC and Wait Time Intervals: Possible values are 1, 5, 15, 30, 60, 240, 1440, 10080, 21600 (in minutes). You must choose one of these values for your nextCtx.ohlcInterval and action.waitTime.
 - OHLC Data (last 400 candles): ${JSON.stringify(ohlc)}
 - Your Persistent Memory (journal of past thoughts/actions): ${JSON.stringify(ctx.journal || [])}
 - Your current state (context from previous run): ${JSON.stringify(ctx.nextCtx || {})}
 - API Calls Remaining Today: ${callsLeft} / 500
 
 Your task:
-1.  **Follow the OOC plan above.**
-2.  **Output your decision:** Respond with a reasoning paragraph, followed by a JSON object.
+1.  **Analyze the market:** Based on the OHLC data, price, and your past performance, what is the best course of action?
+2.  **Check your current state:** Look at your 'context from previous run'. Do you have a stop-loss or take-profit price set? Is the current price below your stop-loss or above your take-profit? If so, decide to close the position.
+3.  **Formulate a plan:** Based on your analysis, decide on a single action. This could be to place an order, or to do nothing and simply update your internal state.
+4.  **Output your decision:** Respond with a reasoning paragraph, followed by a JSON object. If you are placing a new trade, you **must** include a 'stopLossPrice' and 'takeProfitPrice' in the 'nextCtx'. If you are closing a position, you should set 'stopLossPrice' and 'takeProfitPrice' to 'null' in the 'nextCtx'.
 
 \`\`\`json
 {
-  "reason": "Explain your logic for this decision. For example: 'I am currently in step 1 of the test plan. My position is flat, so I will open a long position of 0.0001 BTC and set my state to awaiting_close.'",
+  "reason": "Explain your logic for this decision. For example: 'I am in a short position and the price is now rising. I will cover my short position and go flat to mitigate risk.'",
   "action": {
     "side": "buy"|"sell"|null,
-    "size": 0.0
+    "size": 0.0,
+    "waitTime": 5
   },
   "nextCtx": {
     "ohlcInterval": 5,
-    "state": "idle"|"awaiting_close",
-    "counter": 0,
-    "stopLossPrice": null,
-    "takeProfitPrice": null
+    "stopLossPrice": 0.0,
+    "takeProfitPrice": 0.0,
+    "state": "monitoring_trade"
   }
 }
 \`\`\`
