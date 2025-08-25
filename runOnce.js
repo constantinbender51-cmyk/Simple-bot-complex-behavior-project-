@@ -28,13 +28,13 @@ export async function runOnce() {
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
 
     const plan = await decidePlan({
-  markPrice: snap.markPrice,
-  position:  snap.position,
-  balance:   snap.balance,
-  ohlc,
-  callsLeft
-});
-
+        markPrice: snap.markPrice,
+        position:  snap.position,
+        balance:   snap.balance,
+        ohlc,
+        callsLeft
+    });
+    console.log('📋 PLAN:', plan);
     await interpret(plan);
     await KV.set(keyToday, callsSoFar + 1);
   } catch (e) {
