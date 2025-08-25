@@ -20,7 +20,8 @@ export async function getMarketSnapshot() {
 
     const ticker   = tickers.tickers.find(t => t.symbol === PAIR);
     const position = positions.openPositions.find(p => p.symbol === PAIR) || null;
-    const balance  = +accounts.accounts.find(a => a.currency === 'USD')?.balanceValue || 0;
+    const flexAccount = accounts.accounts.find(a => a.type === 'flex');
+    const balance = flexAccount ? +flexAccount.availableMargin : 0;
     const markPx   = +ticker?.markPrice || 0;
 
     return {
