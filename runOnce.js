@@ -1,6 +1,6 @@
 // runOnce.js
 import { getMarketSnapshot } from './marketProxy.js';
-import { decidePlan }        from './decisionEngine.js';   // wraps StrategyEngine
+import { decidePlan }        fr om './decisionEngine.js';   // wraps StrategyEngine
 import { sendMarketOrder }   from './execution.js';
 import { saveContext }       from './context.js';
 import KrakenFuturesApi from './krakenApi.js';
