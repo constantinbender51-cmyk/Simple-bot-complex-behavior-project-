@@ -5,6 +5,18 @@ import { sendMarketOrder }   from './execution.js';
 import { saveContext }       from './context.js';
 import KrakenFuturesApi from './krakenApi.js';
 
+// inside runOnce.js, right after imports
+const test = await new KrakenFuturesApi(
+  process.env.KRAKEN_API_KEY,
+  process.env.KRAKEN_SECRET_KEY
+).getHistory({
+  symbol: 'PF_XBTUSD',
+  resolution: 1440,
+  from: Math.floor(Date.now()/1000 - 86400*30)   // 30 days ago
+});
+console.log('✅ OHLC test:', test.history?.length || 0, 'candles');
+
+
 const PAIR = 'PF_XBTUSD';
 
 export async function runOnce() {
@@ -39,24 +51,4 @@ export async function runOnce() {
 /* ------------------------------------------------------------------ */
 /* helper – fetch OHLC                                                */
 /* ------------------------------------------------------------------ */
-async function fetchOHLC(intervalMinutes, candleCount) {
-  const api = new KrakenFuturesApi(
-    process.env.KRAKEN_API_KEY,
-    process.env.KRAKEN_SECRET_KEY
-  );
-  const now   = Date.now();
-  const since = Math.floor((now - intervalMinutes * 60_000 * candleCount) / 1000);
-  const res   = await api.getHistory({
-    symbol: PAIR,
-    resolution: intervalMinutes,
-    from: since
-  });
-  return (res.history || []).map(c => ({
-    open:      +c.open,
-    high:      +c.high,
-    low:       +c.low,
-    close:     +c.close,
-    volume:    +c.volume,
-    timestamp: c.timestamp
-  }));
-}
+
