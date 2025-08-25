@@ -2,7 +2,7 @@
 import { getMarketSnapshot } from './marketProxy.js';
 import { decidePlan }        from './decisionEngine.js';
 import { interpret }         from './interpreter.js';
-import { saveContext }       from './context.js';
+import { saveContext, loadContext } from './context.js';
 import KrakenFuturesApi      from './krakenApi.js';
 import { kv }                from './redis.js';
 
@@ -25,9 +25,7 @@ export async function runOnce() {
     const callsLeft   = limitPerDay - callsSoFar;
     
     const snap = await getMarketSnapshot(PAIR);
-    const contextModule = await import('./context.js');
-    const loadedContext = await contextModule.loadContext();
-    const ctx = JSON.parse(loadedContext || '{}');
+    const ctx  = await loadContext();
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
 
     const plan = await decidePlan({
