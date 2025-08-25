@@ -14,7 +14,12 @@ export class KrakenFuturesApi {
   }
 
   /* ---------- internal ---------- */
-  _nonce() { return Date.now().toString(); }
+  let nonceOffset = 0;          // module-level counter
+
+  _nonce() {
+    const base = Date.now() * 1000;   // micro-second-ish
+    return (base + (++nonceOffset)).toString();
+  }
 
   _sign(path, nonce, post) {
     const hash = crypto.createHash('sha256')
