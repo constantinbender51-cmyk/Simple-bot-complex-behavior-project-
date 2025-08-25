@@ -25,20 +25,26 @@ export async function runOnce() {
     const callsLeft   = limitPerDay - callsSoFar;
     
     const snap = await getMarketSnapshot(PAIR);
-    const ctx  = await loadContext();
+    const ctx = await loadContext();
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
 
+    // Give all data to the brain and get a plan back
     const plan = await decidePlan({
-      markPrice: snap.markPrice,
-      position:  snap.position,
-      balance:   snap.balance,
-      ohlc,
-      callsLeft
-  });
-  console.log('📋 PLAN:', plan);
-  const executionResult = await interpret(plan); // The interpreter now returns a result
-  await saveContext({ plan, nextCtx: { ohlcInterval: plan.ohlcInterval, reason: plan.reason }, outcome: executionResult, marketData: snap });
-  await kv.set(keyToday, callsSoFar + 1);
+        markPrice: snap.markPrice,
+        position:  snap.position,
+        balance:   snap.balance,
+        ohlc,
+        callsLeft
+    });
+    console.log('📋 PLAN:', plan);
+    
+    // Execute the action specified by the brain
+    await interpret(plan.action);
+    
+    // Save the new state for the next run
+    await saveContext({ nextCtx: plan.nextCtx, reason: plan.reason });
+    
+    await kv.set(keyToday, callsSoFar + 1);
   } catch (e) {
     console.error('runOnce failed:', e);
   }
