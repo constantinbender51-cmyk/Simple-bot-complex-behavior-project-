@@ -2,6 +2,7 @@
 import { sendMarketOrder } from './execution.js';
 import { saveContext } from './context.js';
 const PAIR = 'PF_XBTUSD';
+const MIN_TICK = 0.0001;
 
 export async function interpret(plan) {
   const { side, size, waitTime, ohlcInterval, reason } = plan;
