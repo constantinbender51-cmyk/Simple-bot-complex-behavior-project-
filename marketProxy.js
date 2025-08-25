@@ -31,7 +31,7 @@ export async function getMarketSnapshot() {
       fills: fills.fills || []
     };
   } catch (err) {
-    log.error('marketProxy failed:', err);
+    log.error('marketProxy failed:         ', err);
     throw err;
   }
 }
