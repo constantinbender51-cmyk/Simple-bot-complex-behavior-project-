@@ -22,6 +22,7 @@ export async function decidePlan({
     intervalMinutes,
     context
   });
-
+  console.log('🔍 decidePlan ohlc length:', ohlc?.length);
+  
   return plan;
 }
