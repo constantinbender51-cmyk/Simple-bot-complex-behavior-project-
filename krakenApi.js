@@ -4,6 +4,8 @@ import axios   from 'axios';
 import qs      from 'querystring';
 import { log } from './logger.js';
 
+let nonceOffset = 0;       // module-level counter
+
 const BASE_URL = 'https://futures.kraken.com';
 
 export class KrakenFuturesApi {
@@ -14,7 +16,6 @@ export class KrakenFuturesApi {
   }
 
   /* ---------- internal ---------- */
-  let nonceOffset = 0;          // module-level counter
 
   _nonce() {
     const base = Date.now() * 1000;   // micro-second-ish
