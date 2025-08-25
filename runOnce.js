@@ -50,15 +50,19 @@ async function fetchOHLC(intervalMinutes, candleCount) {
     process.env.KRAKEN_API_KEY,
     process.env.KRAKEN_SECRET_KEY
   );
+
   const now   = Date.now();
   const since = Math.floor((now - intervalMinutes * 60_000 * candleCount) / 1000);
 
-  const res = await api.getHistory({
-    symbol: PAIR,
-    resolution: intervalMinutes,
+  // ensure everything is a string/number
+  const params = {
+    symbol: `${PAIR}`,
+    resolution: Number(intervalMinutes),
     from: since
-  });
-
+  };
+  console.log('fetchOHLC params:', params);
+  
+  const res = await api.getHistory(params);
   return (res.history || []).map(c => ({
     open:      +c.open,
     high:      +c.high,
