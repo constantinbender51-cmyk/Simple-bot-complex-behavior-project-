@@ -73,6 +73,21 @@ export class KrakenFuturesApi {
   cancelAllOrders     = p => this._request('POST', '/derivatives/api/v3/cancelallorders', p);
   cancelAllOrdersAfter= p => this._request('POST', '/derivatives/api/v3/cancelallordersafter', p);
   batchOrder          = p => this._request('POST', '/derivatives/api/v3/batchorder', p);
+  // inside KrakenFuturesApi
+async fetchKrakenData({ pair = 'XBTUSD', interval = 60, since } = {}) {
+  const params = { pair, interval };
+  if (since) params.since = since;
+
+  const { data } = await axios.get('https://api.kraken.com/0/public/OHLC', { params });
+  if (data.error?.length) throw new Error(data.error.join(', '));
+
+  const key = Object.keys(data.result).find(k => k !== 'last');
+  return (data.result[key] || []).map(o => ({
+    date:  new Date(o[0] * 1000).toISOString(),
+    open:  +o[1], high: +o[2], low: +o[3], close: +o[4], volume: +o[6]
+  }));
+}
+  
 }
 
 export default KrakenFuturesApi;
