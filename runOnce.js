@@ -3,6 +3,7 @@ import { getMarketSnapshot } from './marketProxy.js';
 import { decidePlan }        from './decisionEngine.js';   // wraps StrategyEngine
 import { sendMarketOrder }   from './execution.js';
 import { saveContext }       from './context.js';
+import KrakenFuturesApi from './krakenApi.js';
 
 const PAIR = 'PF_XBTUSD';
 
@@ -35,4 +36,28 @@ export async function runOnce() {
   } catch (err) {
     console.error('runOnce failed:', err);
   }
+}
+/* ------------------------------------------------------------------ */
+/* helper – fetch OHLC                                                */
+/* ------------------------------------------------------------------ */
+async function fetchOHLC(intervalMinutes, candleCount) {
+  const api = new KrakenFuturesApi(
+    process.env.KRAKEN_API_KEY,
+    process.env.KRAKEN_SECRET_KEY
+  );
+  const now   = Date.now();
+  const since = Math.floor((now - intervalMinutes * 60_000 * candleCount) / 1000);
+  const res   = await api.getHistory({
+    symbol: PAIR,
+    resolution: intervalMinutes,
+    from: since
+  });
+  return (res.history || []).map(c => ({
+    open:      +c.open,
+    high:      +c.high,
+    low:       +c.low,
+    close:     +c.close,
+    volume:    +c.volume,
+    timestamp: c.timestamp
+  }));
 }
