@@ -1,5 +1,5 @@
 // strategyEngine.js
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } fro m '@google/generative-ai';
 import { log } from './logger.js';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
