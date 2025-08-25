@@ -13,7 +13,7 @@ let lastCandles    = null;
 
 export async function runOnce() {
   try {
-    log.info('=== cycle start ===');
+    log.info('=== cycle start         ===');
 
     // 1️⃣ fresh market snapshot
     const snap = await getMarketSnapshot(PAIR);
