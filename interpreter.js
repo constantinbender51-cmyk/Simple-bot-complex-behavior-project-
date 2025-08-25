@@ -1,27 +1,17 @@
+// interpreter.js
+import { sendMarketOrder } from './execution.js';
 import { saveContext } from './context.js';
-import { executePlan } from './execution.js';
-import { log } from './logger.js';
+const PAIR = 'PF_XBTUSD';
 
-export async function runStrategy(strategy, market, ctx) {
-  const { name, params } = strategy;
+export async function interpret(plan) {
+  const { side, size, waitTime, ohlcInterval, reason } = plan;
 
-  let steps = [];
-  switch (name) {
-    case 'gridWithTrail':
-      steps = buildGridTrail(market, params, ctx);
-      break;
-    case 'momentumBreak':
-      steps = buildMomentum(market, params, ctx);
-      break;
-    default:
-      steps = [{ type: 'wait', minutes: 1 }];
+  if (side && size !== 0) {
+    await sendMarketOrder({ pair: PAIR, side, size });
   }
-
-  // store before execution
-  ctx.lastPlan = { steps, strategy };
-  await saveContext(ctx);
-
-  await executePlan(steps, 'PF_XBTUSD');
-
-  // after fills we’ll update context (PnL, hit-rate)
+  if (waitTime > 0) {
+    console.log(`⏳ waiting ${waitTime} min`);
+    await new Promise(r => setTimeout(r, waitTime * 60_000));
+  }
+  await saveContext({ nextCtx: { ohlcInterval, reason } });
 }
