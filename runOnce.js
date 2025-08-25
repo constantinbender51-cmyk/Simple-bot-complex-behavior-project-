@@ -36,7 +36,7 @@ export async function runOnce() {
       log.info('Plan says hold / no steps');
     }
 
-    log.info('=== cycle end ===');
+    log.info('=== cycle end      ===');
   } catch (err) {
     log.error('runOnce failed:', err);
   }
