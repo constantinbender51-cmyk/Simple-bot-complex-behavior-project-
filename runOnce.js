@@ -36,6 +36,7 @@ export async function runOnce() {
 });
 
     await interpret(plan);
+    await KV.set(keyToday, callsSoFar + 1);
   } catch (e) {
     console.error('runOnce failed:', e);
   }
