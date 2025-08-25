@@ -12,11 +12,9 @@ export async function runOnce() {
     // 1️⃣  fetch snapshot
     const snap = await getMarketSnapshot(PAIR);
 
-    // 2️⃣  default OHLC (30 daily candles) if missing
-    let ohlc = snap.ohlc;
-    if (!ohlc?.length) {
-      ohlc = await fetchOHLC(1440, 30);
-    }
+    // ALWAYS fetch 30 days of daily candles before AI prompt
+    const ohlc = await fetchOHLC(1440, 30);
+
 
     // 3️⃣  AI decides everything
     const plan = await decidePlan({
