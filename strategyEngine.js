@@ -24,15 +24,16 @@ Here is all the information you need:
 - Trading Constraints: Max position size is 0.01 BTC. Minimum tick size is 0.0001 BTC.
 - OHLC and Wait Time Intervals: Possible values are 1, 5, 15, 30, 60, 240, 1440, 10080, 21600 (in minutes). You must choose one of these values for your nextCtx.ohlcInterval and action.waitTime.
 - OHLC Data (last 400 candles): ${JSON.stringify(ohlc)}
-- Your Persistent Memory (journal of past thoughts/actions): ${JSON.stringify(ctx.journal || [])}
+- Your Persistent Memory (journal of past thoughts and actions): ${JSON.stringify(ctx.journal || [])}
 - Your current state (context from previous run): ${JSON.stringify(ctx.nextCtx || {})}
 - API Calls Remaining Today: ${callsLeft} / 500
 
 Your task:
 1.  **Analyze the market** to identify trends, support/resistance levels, and volatility.
 2.  **Evaluate your current position** and a potential new plan. Should you scale in? Scale out? Reverse your position?
-3.  **Formulate a plan.** This could be a market order, or a decision to do nothing and simply update your internal state for the next run.
-4.  **Output your decision:** Respond with a reasoning paragraph, followed by a JSON object. You have the flexibility to set a 'stopLossPrice' or 'takeProfitPrice' in your \`nextCtx\` when appropriate for your strategy.
+3.  **For this test run, use any available margin.** Even if the amount is small (e.g., $1.90), consider it a valid trading opportunity to open a position.
+4.  **Formulate a plan.** This could be a market order, or a decision to do nothing and simply update your internal state for the next run.
+5.  **Output your decision:** Respond with a reasoning paragraph, followed by a JSON object. You have the flexibility to set a 'stopLossPrice' or 'takeProfitPrice' in your \`nextCtx\` when appropriate for your strategy.
 
 ---
 
