@@ -8,18 +8,6 @@ import axios from 'axios';
 
 const SPOT_URL = 'https://api.kraken.com/0/public/OHLC';
 
-// inside runOnce.js, right after imports
-const test = await new KrakenFuturesApi(
-  process.env.KRAKEN_API_KEY,
-  process.env.KRAKEN_SECRET_KEY
-).getHistory({
-  symbol: 'PF_XBTUSD',
-  resolution: 1440,
-  from: Math.floor(Date.now()/1000 - 86400*30)   // 30 days ago
-});
-console.log('✅ OHLC test:', test.history?.length || 0, 'candles');
-
-
 const PAIR = 'PF_XBTUSD';
 
 export async function runOnce() {
@@ -29,7 +17,8 @@ export async function runOnce() {
 
     // 2️⃣ always fetch 30 daily candles
     const ohlc = await fetchOHLC(1440, 30);
-
+    console.log('🧠 passing to AI:', ohlc.length, 'candles');
+    
     // 3️⃣ AI decides everything
     const plan = await decidePlan({
       markPrice: snap.markPrice,
