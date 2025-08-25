@@ -25,7 +25,9 @@ export async function runOnce() {
     const callsLeft   = limitPerDay - callsSoFar;
     
     const snap = await getMarketSnapshot(PAIR);
-    const ctx  = await JSON.parse((await import('./context.js')).loadContext() || '{}');
+    const contextModule = await import('./context.js');
+    const loadedContext = await contextModule.loadContext();
+    const ctx = JSON.parse(loadedContext || '{}');
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
 
     const plan = await decidePlan({
