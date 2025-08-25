@@ -15,11 +15,11 @@ export class StrategyEngine {
     const prompt = `
 UTC: ${new Date().toISOString()}
 price:${markPrice} pos:${posSize} pnl:${openPnl} margin:${balance}
-callsLeft:${apiCallLimitPerDay} candles:${ohlc.length}
+callsLeft:${callsLeft} totalLimit:500
 last20:${JSON.stringify(ohlc.slice(-20))}
 ctx:${JSON.stringify(ctx)}
 
-Write any reasoning you like, but finish with exactly:
+Write reasoning, then finish with:
 
 \`\`\`json
 {"side":"buy"|"sell"|null,"size":0.0,"waitTime":0,"ohlcInterval":5,"reason":""}
