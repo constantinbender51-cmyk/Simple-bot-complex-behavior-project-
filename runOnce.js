@@ -51,16 +51,12 @@ async function fetchOHLC(intervalMinutes, maxCandles = 400) {
   const url = 'https://api.kraken.com/0/public/OHLC';
   const params = { pair: 'XBTUSD', interval: intervalMinutes, since };
 
-  console.log('🔍 OHLC request:', url, params);
-
   const { data } = await axios.get(url, { params });
-  console.log('🔍 OHLC response:', JSON.stringify(data, null, 2));
 
   if (data.error?.length) throw new Error(data.error.join(', '));
 
   const key  = Object.keys(data.result).find(k => k !== 'last');
   const list = data.result[key] || [];
-  console.log(`📊 received ${list.length} candles`);
   return list.map(o => ({
     date: new Date(o[0] * 1000).toISOString(),
     open: +o[1], high: +o[2], low: +o[3], close: +o[4], volume: +o[6]
