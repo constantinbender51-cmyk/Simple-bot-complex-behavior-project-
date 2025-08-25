@@ -58,17 +58,27 @@ async function fetchOHLC(intervalMinutes, candleCount) {
   );
   const now   = Date.now();
   const since = Math.floor((now - intervalMinutes * 60_000 * candleCount) / 1000);
-  const res   = await api.getHistory({
-    symbol: PAIR,
-    resolution: intervalMinutes,
-    from: since
-  });
-  return (res.history || []).map(c => ({
-    open:      +c.open,
-    high:      +c.high,
-    low:       +c.low,
-    close:     +c.close,
-    volume:    +c.volume,
-    timestamp: c.timestamp
-  }));
+
+  console.log(`🔍 fetchOHLC ${intervalMinutes}m × ${candleCount} since ${since}`);
+
+  try {
+    const res = await api.getHistory({
+      symbol: PAIR,
+      resolution: intervalMinutes,
+      from: since
+    });
+
+    console.log('🔍 getHistory result:', res);
+
+    if (!res.history?.length) {
+      throw new Error('getHistory returned empty history');
+    }
+    return res.history.map(c => ({
+      open: +c.open, high: +c.high, low: +c.low,
+      close: +c.close, volume: +c.volume, timestamp: c.timestamp
+    }));
+  } catch (e) {
+    console.error('❌ fetchOHLC failed:', e);
+    throw e;
+  }
 }
