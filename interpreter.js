@@ -7,6 +7,10 @@ export async function interpret(plan) {
   const { side, size, waitTime, ohlcInterval, reason } = plan;
 
   if (side && size !== 0) {
+    if (size % MIN_TICK !== 0) {
+      console.error(`❌ Invalid order size: ${size}. Must be a multiple of ${MIN_TICK}`);
+      return; // Stop execution
+    }
     await sendMarketOrder({ pair: PAIR, side, size });
   }
   if (waitTime > 0) {
