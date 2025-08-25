@@ -15,44 +15,39 @@ export class KrakenFuturesApi {
 }
 
 
-  /* ---------- internal ---------- */
-
-  _nonce() {
+  /* ---------- internal helpers ---------- */
+_nonce() {
   if (++this.nonceCtr > 9999) this.nonceCtr = 0;
   return Date.now() + this.nonceCtr.toString().padStart(5, '0');
 }
 
-  _sign(path, nonce, post) {
-    const hash = crypto.createHash('sha256')
-                       .update(post + nonce + path).digest();
-    return crypto.createHmac('sha512', Buffer.from(this.apiSecret, 'base64'))
-                 .update(hash).digest('base64');
-  }
+_sign(endpoint, nonce, postData) {
+  const path = endpoint.replace('/derivatives', ''); // Kraken expects path WITHOUT /derivatives
+  const hash = crypto.createHash('sha256')
+                     .update(postData + nonce + path).digest();
+  return crypto.createHmac('sha512', Buffer.from(this.apiSecret, 'base64'))
+               .update(hash).digest('base64');
+}
 
-  async _request(method, endpoint, params = {}) {
-    const nonce = this._nonce();
-    const post  = method === 'POST' ? qs.stringify(params) : '';
-    const query = method === 'GET' && Object.keys(params).length
+async _request(method, endpoint, params = {}) {
+  const nonce   = this._nonce();
+  const post    = method === 'POST' ? qs.stringify(params) : '';
+  const query   = method === 'GET' && Object.keys(params).length
                   ? '?' + qs.stringify(params) : '';
-    const url   = BASE_URL + endpoint + query;
+  const url     = this.baseUrl + endpoint + query;
 
-    const headers = {
-      APIKey: this.apiKey,
-      Nonce: nonce,
-      Authent: this._sign(endpoint, nonce, post),
-      'User-Agent': 'sbcb/1.0'
-    };
-    if (method === 'POST') headers['Content-Type'] = 'application/x-www-form-urlencoded';
+  const headers = {
+    APIKey: this.apiKey,
+    Nonce: nonce,
+    Authent: this._sign(endpoint, nonce, post),
+    'User-Agent': 'sbcb/1.0'
+  };
+  if (method === 'POST') headers['Content-Type'] = 'application/x-www-form-urlencoded';
 
-    try {
-      const { data } = await axios({ method, url, headers, data: post });
-      if (data.result !== 'success') throw new Error(JSON.stringify(data));
-      return data;
-    } catch (err) {
-      log.error(`[KrakenApi] ${method} ${endpoint} failed:`, err.message);
-      throw err;
-    }
-  }
+  const { data } = await axios({ method, url, headers, data: post });
+  if (data.result !== 'success') throw new Error(JSON.stringify(data));
+  return data;
+}
 
   /* ---------- public endpoints ---------- */
   getTickers = () => this._request('GET', '/derivatives/api/v3/tickers');
