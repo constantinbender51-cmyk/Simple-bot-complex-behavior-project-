@@ -6,14 +6,14 @@ const CONTEXT_KEY = 'bot_context';
 export async function saveContext(data) {
   const currentContext = await loadContext();
   
-  // The new context is the old one combined with the AI's nextCtx
-  const newContext = { ...currentContext, nextCtx: data.plan.nextCtx };
+  // The new context is the old one merged with the AI's nextCtx
+  const newContext = { ...currentContext, nextCtx: data.nextCtx };
   
   // Add a journal entry for the current action
   const journalEntry = {
     timestamp: new Date().toISOString(),
-    reason: data.plan.reason,
-    action: data.plan.action,
+    reason: data.reason,
+    action: data.action,
     marketData: data.marketData
   };
   
