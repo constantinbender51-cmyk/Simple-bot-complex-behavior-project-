@@ -1,7 +1,7 @@
 // krakenApi.js – minimal Kraken Futures REST client
 import crypto  from 'crypto';
 import axios   from 'axios';
-import qs      from 'querystring';
+import qs      from 'querystring'.   ;
 import { log } from './logger.js';
 
 const BASE_URL = 'https://futures.kraken.com';
