@@ -4,23 +4,23 @@ import axios   from 'axios';
 import qs      from 'querystring';
 import { log } from './logger.js';
 
-let nonceOffset = 0;       // module-level counter
-
 const BASE_URL = 'https://futures.kraken.com';
 
 export class KrakenFuturesApi {
   constructor(apiKey, apiSecret) {
-    if (!apiKey || !apiSecret) throw new Error('Missing Kraken Futures credentials');
-    this.apiKey = apiKey;
-    this.apiSecret = apiSecret;
-  }
+  if (!apiKey || !apiSecret) throw new Error('Missing Kraken Futures credentials');
+  this.apiKey = apiKey;
+  this.apiSecret = apiSecret;
+  this.nonceCtr = 0;   // ← make sure this is present
+}
+
 
   /* ---------- internal ---------- */
 
   _nonce() {
-    const base = Date.now() * 1000;   // micro-second-ish
-    return (base + (++nonceOffset)).toString();
-  }
+  if (++this.nonceCtr > 9999) this.nonceCtr = 0;
+  return Date.now() + this.nonceCtr.toString().padStart(5, '0');
+}
 
   _sign(path, nonce, post) {
     const hash = crypto.createHash('sha256')
