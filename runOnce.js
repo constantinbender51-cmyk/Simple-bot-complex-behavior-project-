@@ -1,5 +1,5 @@
 // runOnce.js
-import { getMarketSnapshot } from './marketProxy.js';
+i mport { getMarketSnapshot } from './marketProxy.js';
 import { decidePlan }        from './decisionEngine.js';   // wraps StrategyEngine
 import { sendMarketOrder }   from './execution.js';
 import { saveContext }       from './context.js';
