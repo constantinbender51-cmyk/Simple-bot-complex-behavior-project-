@@ -41,6 +41,7 @@ Your task:
 
 The following are examples of how a sophisticated trading agent uses its memory and market data to perform complex, multi-step actions. You are not required to do these things, but you are capable of them.
 
+* **Initiating a New Trade from an Idle State:** "I am currently in an 'idle' state. My analysis of the recent OHLC data shows a clear bullish trend with strong volume on the 5-minute chart. I have detected a valid entry signal and will initiate a long position of 0.0001 BTC with a stop-loss and take-profit target to manage risk."
 * **Dynamic Strategy Switching:** "The long-term trend appears to be over. My analysis suggests a short-term reversal is likely. I will close my position and switch my strategy to 'short_scalping' with a 15-minute OHLC interval."
 * **Risk-Adjusted Sizing:** "Market volatility has increased significantly over the past 24 hours. My trading signal is strong, but to mitigate risk, I will only open a small position of 0.0001 BTC. If this trade is profitable, I will consider scaling in on the next signal."
 * **Trailing Stop-Loss:** "My long position has been profitable, and the price is moving favorably. I will move my stop-loss up to lock in a portion of my profits. This is a safer approach than a static stop-loss."
