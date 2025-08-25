@@ -18,17 +18,22 @@ async function fetchOHLC(intervalMinutes, count) {
 
 export async function runOnce() {
   try {
+    const keyToday = `calls_${new Date().toISOString().slice(0,10)}`;
+    let callsSoFar = +(await KV.get(keyToday)) || 0;
+    const limitPerDay = 500;
+    const callsLeft   = limitPerDay - callsSoFar;
+    
     const snap = await getMarketSnapshot(PAIR);
     const ctx  = await JSON.parse((await import('./context.js')).loadContext() || '{}');
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
 
     const plan = await decidePlan({
-      markPrice: snap.markPrice,
-      position: snap.position,
-      balance: snap.balance,
-      ohlc,
-      apiCallLimitPerDay: 500
-    });
+  markPrice: snap.markPrice,
+  position:  snap.position,
+  balance:   snap.balance,
+  ohlc,
+  callsLeft
+});
 
     await interpret(plan);
   } catch (e) {
