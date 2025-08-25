@@ -11,19 +11,25 @@ export async function runOnce() {
     // 1️⃣  fetch snapshot
     const snap = await getMarketSnapshot(PAIR);
 
-    // 2️⃣  AI decides everything (side, size, nextCtx, interval, count)
+    // 2️⃣  default OHLC (30 daily candles) if missing
+    let ohlc = snap.ohlc;
+    if (!ohlc?.length) {
+      ohlc = await fetchOHLC(1440, 30);
+    }
+
+    // 3️⃣  AI decides everything
     const plan = await decidePlan({
       ...snap,
-      ohlc: snap.ohlc,           // latest candles already in snapshot
-      intervalMinutes: snap.intervalMinutes || 60
+      ohlc,
+      intervalMinutes: 1440
     });
 
-    // 3️⃣  execute the single market order (or flatten)
+    // 4️⃣  execute single market order (or flatten)
     if (plan.side && plan.size !== 0) {
       await sendMarketOrder({ pair: PAIR, side: plan.side, size: Math.abs(plan.size) });
     }
 
-    // 4️⃣  persist AI’s nextCtx + lastPlan
+    // 5️⃣  persist AI’s nextCtx + lastPlan
     await saveContext({ ...snap.context, ...plan.nextCtx, lastPlan: plan });
 
   } catch (err) {
