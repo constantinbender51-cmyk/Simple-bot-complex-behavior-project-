@@ -9,28 +9,29 @@ const PAIR = 'PF_XBTUSD';
 
 export async function runOnce() {
   try {
-    // 1️⃣  fetch snapshot
+    // 1️⃣ fetch snapshot (no OHLC here)
     const snap = await getMarketSnapshot(PAIR);
 
-    // ALWAYS fetch 30 days of daily candles before AI prompt
+    // 2️⃣ always fetch 30 daily candles
     const ohlc = await fetchOHLC(1440, 30);
 
-
-    // 3️⃣  AI decides everything
+    // 3️⃣ AI decides everything
     const plan = await decidePlan({
-      ...snap,
+      markPrice: snap.markPrice,
+      position: snap.position,
+      balance: snap.balance,
+      fills: snap.fills,
       ohlc,
       intervalMinutes: 1440
     });
 
-    // 4️⃣  execute single market order (or flatten)
+    // 4️⃣ execute single market order
     if (plan.side && plan.size !== 0) {
       await sendMarketOrder({ pair: PAIR, side: plan.side, size: Math.abs(plan.size) });
     }
 
-    // 5️⃣  persist AI’s nextCtx + lastPlan
+    // 5️⃣ persist context
     await saveContext({ ...snap.context, ...plan.nextCtx, lastPlan: plan });
-
   } catch (err) {
     console.error('runOnce failed:', err);
   }
