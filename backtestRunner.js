@@ -59,7 +59,7 @@ export class BacktestRunner {
 
       if (this.exec.getOpenTrade()) this._checkExit(candle);
 
-      if (!this.exec.getOpenTrade()) { // && this._hasSignal({ ohlc: window })) {
+      if (!this.exec.getOpenTrade()) && this._hasSignal({ ohlc: window })) {
         if (apiCalls >= this.cfg.MAX_API_CALLS) {
           log.info('[BACKTEST] Reached the API call limit. Ending simulation.');
           break;
@@ -118,7 +118,7 @@ export class BacktestRunner {
       const dir  = bullish ? 'Bullish' : 'Bearish';
       const date = new Date(cur.timestamp * 1000).toISOString();
     }
-    return bullish || bearish;
+    return true; //bullish || bearish;
   }
 
   async _handleSignal(market, candle, apiCalls) {
