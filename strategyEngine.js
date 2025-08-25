@@ -21,6 +21,7 @@ Here is all the information you need:
 - Current Position: ${posSize} (positive for long, negative for short)
 - Unrealized PnL: ${openPnl}
 - Account Margin: ${balance}
+- Trading Constraints: Max position size is 0.01 BTC. Minimum tick size is 0.0001 BTC.
 - OHLC Data (last 400 candles): ${JSON.stringify(ohlc)}
 - Your Persistent Memory (journal of past thoughts/actions): ${JSON.stringify(ctx.journal || [])}
 - Your current state (context): ${JSON.stringify(ctx.nextCtx || {})}
