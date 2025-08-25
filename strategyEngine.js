@@ -25,12 +25,9 @@ export class StrategyEngine {
 /* -------------------------------------------------------------- */
 /* prompt builder                                                 */
 /* -------------------------------------------------------------- */
-function buildPrompt({
-  markPrice,
-  position,
-  balance,
-  fills
-}) {
+function buildPrompt({ markPrice, position, balance, fills }) {
+  const now = new Date().toISOString();
+
   const posSize = position ? (+position.size) * (position.side === 'long' ? 1 : -1) : 0;
   const openPnl = position ? (+position.upl || 0) : 0;
 
@@ -38,25 +35,26 @@ function buildPrompt({
 You are an advanced crypto strategist running every few minutes.
 You can only emit ONE JSON plan per invocation.
 
-The exchange gives you:
-- current markPrice = ${markPrice}
+Exchange data at ${now}:
+- markPrice = ${markPrice}
 - positionSize (BTC, signed) = ${posSize}
-- unrealized P&L (USD) = ${openPnl}
-- available balance (USD) = ${balance}
+- unrealizedPnl (USD) = ${openPnl}
+- availableBalance (USD) = ${balance}
 - last 50 fills = ${JSON.stringify(fills.slice(-50))}
 
 Allowed tools:
-1. request OHLC in intervals [1,5,60,240,1440] minutes
+1. request OHLC with any intervalMinutes (positive int) and candleCount (positive int)
 2. issue market orders with exact BTC size (signed)
 3. wait (no action)
 
 Output JSON plan:
 {
-  "ohlcInterval": 5,          // OR null to keep current
+  "intervalMinutes": 3,
+  "candleCount": 400,
   "steps": [
-    { "type": "market", "side": "buy", "size": 0.001 },
-    { "type": "wait", "minutes": 5 },
-    { "type": "market", "side": "sell", "size": 0.002 }
+    { "type": "market", "side": "buy", "size": 0.002 },
+    { "type": "wait", "minutes": 4 },
+    { "type": "market", "side": "sell", "size": 0.001 }
   ],
   "reason": "concise ≤20 words"
 }
@@ -64,6 +62,6 @@ Output JSON plan:
 Constraints:
 - Do NOT exceed 10× leverage (max abs size ≤ balance / markPrice * 10)
 - Provide at least one step or explicit "steps":[] with reason "hold".
-- Never output extra commentary outside JSON.
+- Never output commentary outside JSON.
 `;
 }
