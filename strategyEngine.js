@@ -24,25 +24,27 @@ Here is all the information you need:
 - Trading Constraints: Max position size is 0.01 BTC. Minimum tick size is 0.0001 BTC.
 - OHLC Data (last 400 candles): ${JSON.stringify(ohlc)}
 - Your Persistent Memory (journal of past thoughts/actions): ${JSON.stringify(ctx.journal || [])}
-- Your current state (context): ${JSON.stringify(ctx.nextCtx || {})}
+- Your current state (context from previous run): ${JSON.stringify(ctx.nextCtx || {})}
 - API Calls Remaining Today: ${callsLeft} / 500
 
 Your task:
 1.  **Analyze the market:** Based on the OHLC data, price, and your past performance, what is the best course of action?
-2.  **Check for conditions:** Do you need to close a position? Monitor for a stop-loss or take-profit target?
+2.  **Check your current state:** Look at your 'context from previous run'. Do you have a stop-loss or take-profit price set? Is the current price below your stop-loss or above your take-profit? If so, decide to close the position.
 3.  **Formulate a plan:** Based on your analysis, decide on a single action. This could be to place an order, or to do nothing and simply update your internal state.
-4.  **Output your decision:** Respond with a reasoning paragraph, followed by a JSON object.
+4.  **Output your decision:** Respond with a reasoning paragraph, followed by a JSON object. If you are placing a new trade, you **must** include a 'stopLossPrice' and 'takeProfitPrice' in the 'nextCtx'. If you are closing a position, you should set 'stopLossPrice' and 'takeProfitPrice' to 'null' in the 'nextCtx'.
 
 \`\`\`json
 {
-  "reason": "Explain your logic for this decision. For example: 'The price has fallen below my mental stop-loss of X. I will close the position to limit further losses.'",
+  "reason": "Explain your logic for this decision. For example: 'I have a long position. The price has just fallen below my set stop-loss of 110000. I will close the position to limit further losses.'",
   "action": {
     "side": "buy"|"sell"|null,
     "size": 0.0
   },
   "nextCtx": {
     "ohlcInterval": 5,
-    "someOtherState": "You can add any other state variables here for memory."
+    "stopLossPrice": 0.0,
+    "takeProfitPrice": 0.0,
+    "state": "monitoring_trade"
   }
 }
 \`\`\`
@@ -52,3 +54,4 @@ Your task:
     return JSON.parse(raw.match(/```json\s*(\{[\s\S]*?\})\s*```/)?.[1] || '{}');
   }
 }
+
