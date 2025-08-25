@@ -59,7 +59,7 @@ export class BacktestRunner {
 
       if (this.exec.getOpenTrade()) this._checkExit(candle);
 
-      if (!this.exec.getOpenTrade()) && this._hasSignal({ ohlc: window })) {
+      if (!this.exec.getOpenTrade() && this._hasSignal({ ohlc: window })) {
         if (apiCalls >= this.cfg.MAX_API_CALLS) {
           log.info('[BACKTEST] Reached the API call limit. Ending simulation.');
           break;
