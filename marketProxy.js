@@ -9,13 +9,23 @@ const api = new KrakenFuturesApi(
   process.env.KRAKEN_SECRET_KEY
 );
 
-export async function getMarketSnapshot(lastFetchTime) {
+/**
+ * Fetches a snapshot of the current market data and new position events.
+ * The 'since' parameter is converted to a Unix timestamp (seconds)
+ * to ensure compatibility with the Kraken API.
+ * @param {number} lastPositionEventsFetch - The timestamp in milliseconds of the last event fetch.
+ * @returns {object} A market data snapshot.
+ */
+export async function getMarketSnapshot(lastPositionEventsFetch) {
   try {
+    // The fix: convert the JavaScript timestamp (milliseconds) to a Unix timestamp (seconds).
+    const sinceInSeconds = lastPositionEventsFetch ? Math.floor(lastPositionEventsFetch / 1000) : undefined;
+    
     const [tickers, positions, accounts, events] = await Promise.all([
       api.getTickers(),
       api.getOpenPositions(),
       api.getAccounts(),
-      api.getPositionEvents({ since: lastFetchTime })
+      api.getPositionEvents({ since: sinceInSeconds })
     ]);
 
     const ticker = tickers.tickers.find(t => t.symbol === PAIR);
