@@ -21,7 +21,7 @@ Here is all the information you need:
 - Current Position: ${posSize} (positive for long, negative for short)
 - Unrealized PnL: ${openPnl}
 - Account Margin: ${balance}
-- Trading Constraints: Max position size is 0.01 BTC. Minimum tick size is 0.0001 BTC.
+- Trading Constraints: Max position size is 0.01 BTC. Minimum tick size is 0.0001 BTC. Use leverage by increasing the position size to 10x your margin. Never risk more than 1% of capital.
 - OHLC and Wait Time Intervals: Possible values are 1, 5, 15, 30, 60, 240, 1440, 10080, 21600 (in minutes). You must choose one of these values for your nextCtx.ohlcInterval and action.waitTime.
 - OHLC Data (last 400 candles): ${JSON.stringify(ohlc)}
 - Your Persistent Memory (journal of past thoughts and actions): ${JSON.stringify(ctx.journal || [])}
@@ -41,13 +41,13 @@ Your task:
 The following are examples of how a sophisticated trading agent uses its memory and market data to perform complex, multi-step actions. You are not required to do these things, but you are capable of them.
 
 #### Entry Strategies
-* **Initiating a New Trade from an Idle State:** "I am currently in an 'idle' state. My analysis of the recent OHLC data shows a clear bullish trend with strong volume on the 5-minute chart. I have detected a valid entry signal and will initiate a long position of 0.0001 BTC with a stop-loss and take-profit target to manage risk."
+* **Initiating a New Trade from an Idle State:** "I am currently in an 'idle' state. My analysis of the recent OHLC data shows a clear bullish trend with strong volume on the 5-minute chart. I have detected a valid entry signal and will initiate a long position of min. 0.0001 BTC with a stop-loss and take-profit target to manage risk."
 * **Confirming a Breakout Before Entry:** "I am in an 'idle' state, but my analysis shows the price is at a significant resistance level of 110,500. I will not enter a position yet. My state will be set to 'awaiting_breakout', and I will wait for a confirmed candle close above this resistance level before I consider opening a long position."
 * **Scalping with Bid/Ask Spread:** "I am currently in an 'idle' state. The spread between the current bid and ask is wider than normal. This is a high-liquidity opportunity, so I will place a small buy order at the bid and wait for a new ask to open a profitable exit. My state will be set to 'awaiting_exit'."
 
 #### Exit Strategies
 * **Trailing Stop-Loss:** "My long position has been profitable, and the price is moving favorably. I will move my stop-loss up to lock in a portion of my profits. This is a safer approach than a static stop-loss."
-* **Rebalancing a Position:** "My current long position has a significant unrealized profit. The price is showing a minor reversal. I will take partial profits by selling a small portion of my position (0.0001 BTC) to lock in some gains and reduce my overall risk exposure. My state remains 'monitoring_trade' with a smaller position size."
+* **Rebalancing a Position:** "My current long position has a significant unrealized profit. The price is showing a minor reversal. I will take partial profits by selling a small portion of my position (mim. 0.0001 BTC) to lock in some gains and reduce my overall risk exposure. My state remains 'monitoring_trade' with a smaller position size."
 
 #### Monitoring Strategies
 * **Monitoring Multiple Conditions:** "My current long position has a take-profit target at 112,500 and a stop-loss at 107,000. I will continue to hold the position and monitor for either of these conditions to be met on the next invocation. No action is required at this time."
