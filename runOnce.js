@@ -2,7 +2,7 @@
 import { getMarketSnapshot } from './marketProxy.js';
 import { decidePlan } from './decisionEngine.js';
 import { interpret } from './interpreter.js';
-import { saveContext, loadContext, saveJournalEntry } from './context.js';
+import { saveContext, loadContext, saveJournalEntry, saveActionEntry } from './context.js';
 import { kv } from './redis.js';
 import { log } from './logger.js';
 import KrakenFuturesApi from './krakenApi.js';
@@ -27,9 +27,14 @@ export async function runOnce() {
     const callsLeft = limitPerDay - callsSoFar;
 
     const ctx = await loadContext();
-    const lastFillTime = (Date.now() - 1000 * 60 * 60 * 24).toString();
 
-    const snap = await getMarketSnapshot( ctx.lastPositionEventsFetch);
+    // The key fix: set the initial fetch timestamp on the very first run
+    if (!ctx.lastPositionEventsFetch) {
+      ctx.lastPositionEventsFetch = Date.now();
+      log.info('🤖 Initializing bot for the first time. Starting event tracking from now.');
+    }
+
+    const snap = await getMarketSnapshot(ctx.lastPositionEventsFetch);
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
 
     const plan = await decidePlan({
@@ -70,14 +75,19 @@ export async function runOnce() {
       ctx.lastPositionEventsFetch = Date.now();
     }
     
-    // Save the context for the AI's next invocation.
-    // This is for the AI's short-term memory and the action it just took.
-    await saveContext({
-      nextCtx: plan.nextCtx,
+    // Save the bot's action to the long-term journal
+    await saveActionEntry({
       reason: plan.reason,
       action: plan.action,
-      marketData: snap.markPrice
+      marketData: {
+        markPrice: snap.markPrice,
+        position: snap.position,
+        balance: snap.balance,
+      }
     });
+
+    // Save the AI's state for the next invocation
+    await saveContext(plan.nextCtx);
 
     await kv.set(keyToday, callsSoFar + 1);
     log.info('✅ Cycle complete. Plan:', plan);
