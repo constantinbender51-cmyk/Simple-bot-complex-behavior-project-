@@ -27,6 +27,9 @@ export async function runOnce() {
     const callsLeft = limitPerDay - callsSoFar;
 
     const ctx = await loadContext();
+    if (!ctx.journal) {
+        ctx.journal = [];
+    }
 
     // The key fix: set the initial fetch timestamp on the very first run
     if (!ctx.lastPositionEventsFetch) {
