@@ -1,72 +1,131 @@
-// context.js
+// runOnce.js
+import { getMarketSnapshot } from './marketProxy.js';
+import { decidePlan } from './decisionEngine.js';
+import { interpret } from './interpreter.js';
+import { saveContext, loadContext } from './context.js';
 import { kv } from './redis.js';
+import { log } from './logger.js';
+import KrakenFuturesApi from './krakenApi.js';
 
-const CONTEXT_KEY = 'bot_context';
+const PAIR = 'PF_XBTUSD';
 
-/**
- * Saves the bot's short-term context, which is the AI's next state.
- * This is used for the AI to remember specific variables for the next run.
- * @param {object} data - The AI's next context object.
- */
-export async function saveContext(data) {
-  try {
-    const currentContext = await loadContext();
-    // Only update the nextCtx part of the context
-    const newContext = { ...currentContext, nextCtx: data };
-    await kv.set(CONTEXT_KEY, JSON.stringify(newContext));
-  } catch (e) {
-    console.error('saveContext failed:', e);
-  }
+const krakenApi = new KrakenFuturesApi(
+  process.env.KRAKEN_API_KEY,
+  process.env.KRAKEN_SECRET_KEY
+);
+
+async function fetchOHLC(intervalMinutes, count) {
+  const since = Math.floor(Date.now() / 1000 - intervalMinutes * 60 * count);
+  return krakenApi.fetchKrakenData({ pair: 'XBTUSD', interval: intervalMinutes, since });
 }
 
-/**
- * Loads the last saved bot context.
- * @returns {object} The bot's context object.
- */
-export async function loadContext() {
-  const data = await kv.get(CONTEXT_KEY);
-  return JSON.parse(data || '{}');
-}
-
-/**
- * Saves a journal entry for a realized P&L event.
- * @param {object} entry - The journal entry object.
- */
-export async function saveJournalEntry(entry) {
+export async function runOnce() {
   try {
-    const currentContext = await loadContext();
-    const newContext = { ...currentContext };
+    const keyToday = `calls_${new Date().toISOString().slice(0, 10)}`;
+    let callsSoFar = +(await kv.get(keyToday)) || 0;
+    const limitPerDay = 500;
+    const callsLeft = limitPerDay - callsSoFar;
+
+    // --- LOAD ONCE, AT THE START ---
+    const ctx = await loadContext();
+
+    // Check for the AI's plan and merge it into the main context.
+    if (ctx.nextCtx) {
+      Object.assign(ctx, ctx.nextCtx);
+    }
     
-    // Add the new P&L entry to the journal
-    newContext.journal = (newContext.journal || []).concat(entry);
-    await kv.set(CONTEXT_KEY, JSON.stringify(newContext));
-  } catch (e) {
-    console.error('saveJournalEntry failed:', e);
-  }
-}
+    log.info('📊 Keys in context loaded from Redis:', Object.keys(ctx));
 
-/**
- * Saves a journal entry for an AI action.
- * @param {object} entry - The journal entry object.
- */
-export async function saveActionEntry(entry) {
-  try {
-    const currentContext = await loadContext();
-    const newContext = { ...currentContext };
+    if (!ctx.lastPositionEventsFetch) {
+      ctx.lastPositionEventsFetch = Date.now();
+      log.info('🤖 Initializing bot for the first time. Starting event tracking from now.');
+    }
 
-    // Create a journal entry for the current AI action
-    const journalEntry = {
+    if (!ctx.journal) {
+      ctx.journal = [];
+    }
+    // ----------------------------
+
+    const snap = await getMarketSnapshot(ctx.lastPositionEventsFetch);
+    const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
+
+    const plan = await decidePlan({
+      markPrice: snap.markPrice,
+      position: snap.position,
+      balance: snap.balance,
+      ohlc,
+      callsLeft
+    });
+    
+    // --- UPDATE CONTEXT IN-MEMORY ---
+    const actionEntry = {
       timestamp: new Date().toISOString(),
-      reason: entry.reason,
-      action: entry.action,
-      marketData: entry.marketData,
+      reason: plan.reason,
+      action: plan.action,
+      marketData: {
+        markPrice: snap.markPrice,
+        position: snap.position,
+        balance: snap.balance,
+      },
       type: 'bot_action'
     };
+    ctx.journal.push(actionEntry);
 
-    // Append the new entry to the journal
-    newContext.journal = (newContext.journal || []).concat(journalEntry);
-    await kv.set(CONTEXT_KEY, JSON.stringify(newContext));
+    await interpret(plan.action);
+    let pnlEventsAdded = 0;
+
+    if (snap.events && snap.events.length > 0) {
+      const newEvents = snap.events.filter(apiEvent => apiEvent.timestamp > ctx.lastPositionEventsFetch);
+      
+      if (newEvents.length > 0) {
+        newEvents.forEach(apiEvent => {
+          if (apiEvent.event && apiEvent.event.PositionUpdate) {
+            const event = apiEvent.event.PositionUpdate;
+            if (event.updateReason === 'trade' && event.positionChange === 'close') {
+              const journalEntry = {
+                closedTime: new Date(apiEvent.timestamp).toISOString(),
+                pair: event.tradeable,
+                pnl: +event.realizedPnL,
+                side: event.oldPosition === 'long' ? 'sell' : 'buy',
+                size: +event.positionChange, 
+                entryPrice: +event.oldAverageEntryPrice,
+                exitPrice: +event.executionPrice,
+                type: 'realized_pnl',
+              };
+              
+              ctx.journal.push(journalEntry);
+              pnlEventsAdded++;
+            }
+          }
+        });
+
+        const latestEvent = newEvents[newEvents.length - 1];
+
+        if (typeof latestEvent.timestamp === 'number' && latestEvent.timestamp > 0) {
+            ctx.lastPositionEventsFetch = latestEvent.timestamp;
+        } else {
+            log.warn('⚠️ Invalid timestamp received from API, skipping update to lastPositionEventsFetch.');
+        }
+      }
+    }
+    
+    // --- SAVE ONCE, AT THE END ---
+    // Merge the AI's plan directly into the main context object.
+    Object.assign(ctx, plan.nextCtx);
+
+    log.info(`💾 LastPositionEventsFetch before save: ${ctx.lastPositionEventsFetch}`);
+
+    await saveContext(ctx);
+    log.info('💾 Save context operation requested.');
+
+    await kv.set(keyToday, callsSoFar + 1);
+
+    log.info('✅ Cycle complete. Plan:', plan);
+    log.info(`📖 Journal: Current length is ${ctx.journal.length}.`);
+    log.info(`📈 P&L Events: Added ${pnlEventsAdded} new events.`);
+
+    return plan;
   } catch (e) {
-    console.error('saveActionEntry failed:', e);
+    console.error('runOnce failed:', e);
   }
 }
