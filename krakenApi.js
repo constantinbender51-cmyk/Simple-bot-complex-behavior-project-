@@ -1,3 +1,4 @@
+// krakenApi.js
 import crypto from 'crypto';
 import axios from 'axios';
 import qs from 'querystring';
@@ -29,14 +30,20 @@ export class KrakenFuturesApi {
 
   async _request(method, endpoint, params = {}) {
     const nonce   = this._nonce();
-    const post    = method === 'POST' ? qs.stringify(params) : '';
-    const query   = method === 'GET'  && Object.keys(params).length
-                  ? '?' + qs.stringify(params) : '';
+    let postData  = '';
+    let query     = '';
+
+    if (method === 'POST') {
+      postData = qs.stringify(params);
+    } else if (method === 'GET' && Object.keys(params).length) {
+      query    = '?' + qs.stringify(params);
+      postData = qs.stringify(params); // <-- CORRECTED: Signing the query string
+    }
 
     const headers = {
       APIKey:  this.apiKey,
       Nonce:   nonce,
-      Authent: this._sign(endpoint, nonce, post),
+      Authent: this._sign(endpoint, nonce, postData), // <-- CORRECTED: Use postData
       'User-Agent': 'TradingBot/1.0'
     };
     if (method === 'POST') headers['Content-Type'] = 'application/x-www-form-urlencoded';
@@ -44,7 +51,7 @@ export class KrakenFuturesApi {
     const url = this.baseUrl + endpoint + query;
 
     try {
-      const { data } = await axios({ method, url, headers, data: post });
+      const { data } = await axios({ method, url, headers, data: postData });
       return data;
     } catch (e) {
       const info = e.response?.data || { message: e.message };
@@ -88,8 +95,7 @@ export class KrakenFuturesApi {
     }));
   }
 
-  // --- NEW METHOD ---
-  getPositionEvents   = p => this._request('GET', '/api/history/v3/positions', p);
+  getPositionEvents = p => this._request('GET', '/api/history/v3/positions', p);
 }
 
 export default KrakenFuturesApi;
