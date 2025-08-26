@@ -1,50 +1,49 @@
 // runOnce.js
-import { ExecutionHandler } from './executionHandler.js';
-import { StrategyEngine } from './strategyEngine.js';
-import { DataHandler } from './dataHandler.js';
-import { loadContext, saveContext } from './context.js';
-import { log } from './logger.js';
+import { getMarketSnapshot } from './marketProxy.js';
+import { decidePlan }        from './decisionEngine.js';
+import { interpret }         from './interpreter.js';
+import { saveContext, loadContext } from './context.js';
+import KrakenFuturesApi      from './krakenApi.js';
+import { kv }                from './redis.js';
 import { getPositionEvents } from './krakenApi.js';
-import { createClient } from 'redis';
+import { sendMarketOrder } from './execution.js';
+import { log } from './logger.js';
 
-const KV = createClient({ url: process.env.REDIS_URL });
-KV.connect();
+const PAIR = 'PF_XBTUSD';
 
-const KEY = d => `calls_${d.toISOString().slice(0, 10)}`;
+async function fetchOHLC(intervalMinutes, count) {
+  const api = new KrakenFuturesApi(
+    process.env.KRAKEN_API_KEY,
+    process.env.KRAKEN_SECRET_KEY
+  );
+  const since = Math.floor(Date.now() / 1000 - intervalMinutes * 60 * count);
+  return api.fetchKrakenData({ pair: 'XBTUSD', interval: intervalMinutes, since });
+}
 
-export const runOnce = async () => {
+export async function runOnce() {
   try {
-    const data = new DataHandler();
-    const market = await data.getMarketData();
-    const snap = await data.getAccountSnapshot();
-    const ohlc = await data.getOHLC(market.pair);
-    const engine = new StrategyEngine();
+    const keyToday = `calls_${new Date().toISOString().slice(0,10)}`;
+    let callsSoFar = +(await kv.get(keyToday)) || 0;
+    const limitPerDay = 500;
+    const callsLeft   = limitPerDay - callsSoFar;
     
-    const todayKey = KEY(new Date());
-    const callsToday = +(await KV.get(todayKey)) || 0;
-    const callsLeft = 500 - callsToday;
-
-    if (callsLeft <= 0) {
-      log.info('API call limit reached. Waiting for next day.');
-      return { nextCtx: { waitTime: 1440 } };
-    }
-
+    const snap = await getMarketSnapshot(PAIR);
     const ctx = await loadContext();
+    const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
 
-    const plan = await engine.generatePlan({
-      markPrice: market.price,
-      position: snap.position,
-      balance: snap.balance,
-      ohlc,
-      callsLeft
+    const plan = await decidePlan({
+        markPrice: snap.markPrice,
+        position:  snap.position,
+        balance:   snap.balance,
+        ohlc,
+        callsLeft
     });
-
-    if (plan?.action?.side && plan.action.size > 0) {
-      const execution = new ExecutionHandler();
-      log.info(`Attempting to place market order: ${plan.action.side} ${plan.action.size}`);
-      await execution.placeMarketOrder(plan.action);
-    }
-
+    console.log('📋 PLAN:', plan);
+    
+    // Execute the action specified by the brain
+    await interpret(plan.action);
+    
+    // ------------------ P&L LOGGING LOGIC ------------------
     const lastFetch = ctx.lastPositionEventsFetch || 0;
     const events = await getPositionEvents({ since: lastFetch });
     
@@ -74,19 +73,18 @@ export const runOnce = async () => {
         ctx.lastPositionEventsFetch = Date.now();
     }
     
-    // --- NEW LOGGING STATEMENT ---
     log.info('📖 Journal Contents:', JSON.stringify(ctx.journal, null, 2));
-
-    await saveContext(ctx);
     
-    await KV.set(todayKey, callsToday + 1);
+    // Save the new context and journal data in one single call
+    await saveContext({ 
+        nextCtx: plan.nextCtx,
+        reason: plan.reason,
+        action: plan.action,
+        marketData: snap
+    });
     
-    log.info('✅ Cycle complete. Plan:', plan);
-    
-    return plan;
-  } catch (error) {
-    log.error("An error occurred in runOnce. The bot will restart after the default interval.", error);
-    const plan = { nextCtx: { waitTime: 5 } };
-    return plan;
+    await kv.set(keyToday, callsSoFar + 1);
+  } catch (e) {
+    console.error('runOnce failed:', e);
   }
-};
+}
