@@ -10,6 +10,10 @@ import { log } from './logger.js';
 
 const PAIR = 'PF_XBTUSD';
 
+// --- DEBUGGING: Check if API keys are loaded correctly ---
+log.info('API Key exists:', !!process.env.KRAKEN_API_KEY);
+log.info('API Secret exists:', !!process.env.KRAKEN_SECRET_KEY);
+
 const krakenApi = new KrakenFuturesApi(
   process.env.KRAKEN_API_KEY,
   process.env.KRAKEN_SECRET_KEY
@@ -41,19 +45,13 @@ export async function runOnce() {
     console.log('📋 PLAN:', plan);
 
     // --- DEBUGGING LOGIC ---
-    // Moved to execute immediately
     try {
-      const fills = await krakenApi.getFills({ lastFillTime: Date.now() - 1000 * 60 * 60 * 24 });
-      log.info('✅ Get Fills succeeded:', JSON.stringify(fills));
-
       const lastFetch = ctx.lastPositionEventsFetch || 0;
       const events = await krakenApi.getPositionEvents({ since: lastFetch });
       log.info('✅ Get Position Events succeeded:', JSON.stringify(events));
 
-      // ------------------ P&L LOGGING LOGIC ------------------
       if (events && events.length > 0) {
         ctx.journal = ctx.journal || [];
-
         events.forEach(event => {
           if (event.updateReason === 'trade' && event.positionChange === 'close') {
             const journalEntry = {
@@ -73,7 +71,6 @@ export async function runOnce() {
             }
           }
         });
-
         ctx.lastPositionEventsFetch = Date.now();
       }
 
@@ -93,7 +90,6 @@ export async function runOnce() {
     });
 
     await kv.set(keyToday, callsSoFar + 1);
-
     log.info('✅ Cycle complete. Plan:', plan);
 
     return plan;
