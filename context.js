@@ -4,34 +4,28 @@ import { kv } from './redis.js';
 const CONTEXT_KEY = 'bot_context';
 
 /**
- * Saves the current bot context, including the AI's next state and a journal entry.
- * This is for the AI's "short-term" memory and actions taken.
- * The journal will grow indefinitely to serve as "long-term" memory.
- * @param {object} data - The data to save, including nextCtx, reason, action, and marketData.
+ * Saves the bot's short-term context, which is the AI's next state.
+ * This is used for the AI to remember specific variables for the next run.
+ * @param {object} data - The AI's next context object.
  */
 export async function saveContext(data) {
   try {
     const currentContext = await loadContext();
-    
-    // The new context is the old one merged with the AI's nextCtx
-    const newContext = { ...currentContext, nextCtx: data.nextCtx };
-    
-    // Create a journal entry for the current AI action and add it to the journal
-    const journalEntry = {
-      timestamp: new Date().toISOString(),
-      reason: data.reason,
-      action: data.action,
-      marketData: data.marketData,
-      type: 'bot_action'
-    };
-    
-    // Append the new entry to the journal. The key fix is that we are no longer
-    // using .slice(-10) so the journal will retain all entries.
-    newContext.journal = (newContext.journal || []).concat(journalEntry);
+    // Only update the nextCtx part of the context
+    const newContext = { ...currentContext, nextCtx: data };
     await kv.set(CONTEXT_KEY, JSON.stringify(newContext));
   } catch (e) {
     console.error('saveContext failed:', e);
   }
+}
+
+/**
+ * Loads the last saved bot context.
+ * @returns {object} The bot's context object.
+ */
+export async function loadContext() {
+  const data = await kv.get(CONTEXT_KEY);
+  return JSON.parse(data || '{}');
 }
 
 /**
@@ -51,13 +45,28 @@ export async function saveJournalEntry(entry) {
   }
 }
 
-
 /**
- * Loads the last saved bot context.
- * @returns {object} The bot's context object.
+ * Saves a journal entry for an AI action.
+ * @param {object} entry - The journal entry object.
  */
-export async function loadContext() {
-  const data = await kv.get(CONTEXT_KEY);
-  return JSON.parse(data || '{}');
-}
+export async function saveActionEntry(entry) {
+  try {
+    const currentContext = await loadContext();
+    const newContext = { ...currentContext };
 
+    // Create a journal entry for the current AI action
+    const journalEntry = {
+      timestamp: new Date().toISOString(),
+      reason: entry.reason,
+      action: entry.action,
+      marketData: entry.marketData,
+      type: 'bot_action'
+    };
+
+    // Append the new entry to the journal
+    newContext.journal = (newContext.journal || []).concat(journalEntry);
+    await kv.set(CONTEXT_KEY, JSON.stringify(newContext));
+  } catch (e) {
+    console.error('saveActionEntry failed:', e);
+  }
+}
