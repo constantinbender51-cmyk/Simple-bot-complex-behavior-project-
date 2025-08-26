@@ -1,20 +1,26 @@
 // context.js
 import { kv } from './redis.js';
-import { log } from './logger.js';
 
 const CONTEXT_KEY = 'bot_context';
 
-// FIX: This function now simply takes the complete context object and saves it
-export async function saveContext(newContext) {
-  try {
-    await kv.set(CONTEXT_KEY, JSON.stringify(newContext));
-    log.info('✅ Context saved successfully.');
-  } catch (e) {
-    log.error('❌ Failed to save context:', e);
-  }
+export async function saveContext(data) {
+  const currentContext = await loadContext();
+  
+  // The new context is the old one merged with the AI's nextCtx
+  const newContext = { ...currentContext, nextCtx: data.nextCtx };
+  
+  // Add a journal entry for the current action
+  const journalEntry = {
+    timestamp: new Date().toISOString(),
+    reason: data.reason,
+    action: data.action,
+    marketData: data.marketData
+  };
+  
+  newContext.journal = (newContext.journal || []).concat(journalEntry).slice(-10); // Keep last 10 entries
+  await kv.set(CONTEXT_KEY, JSON.stringify(newContext));
 }
 
-// This function remains the same, it handles the initial case where no context exists
 export async function loadContext() {
   const data = await kv.get(CONTEXT_KEY);
   return JSON.parse(data || '{}');
