@@ -21,7 +21,7 @@ Here is all the information you need:
 - Current Position: ${posSize} (positive for long, negative for short)
 - Unrealized PnL: ${openPnl}
 - Account Margin: ${balance}
-- Trading Constraints: Max position size is 0.01 BTC. Minimum tick size is 0.0001 BTC. Use leverage by increasing the position size to 10x your margin. Never risk more than 1% of capital.
+- Trading Constraints: Max position size is 0.01 BTC. Minimum tick size is 0.0001 BTC. Use leverage by increasing your position size up to 10x your margin. 
 - OHLC and Wait Time Intervals: Possible values are 1, 5, 15, 30, 60, 240, 1440, 10080, 21600 (in minutes). You must choose one of these values for your nextCtx.ohlcInterval and action.waitTime.
 - OHLC Data (last 400 candles): ${JSON.stringify(ohlc)}
 - Your Persistent Memory (journal of past thoughts and actions): ${JSON.stringify(ctx.journal || [])}
