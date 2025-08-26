@@ -13,7 +13,6 @@ export class KrakenFuturesApi {
     this.nonceCtr = 0;
   }
 
-  /* ---------- internal helpers ---------- */
   _nonce() {
     if (++this.nonceCtr > 9999) this.nonceCtr = 0;
     return Date.now() + this.nonceCtr.toString().padStart(5, '0');
@@ -28,15 +27,21 @@ export class KrakenFuturesApi {
   }
 
   async _request(method, endpoint, params = {}) {
-    const nonce   = this._nonce();
-    const post    = method === 'POST' ? qs.stringify(params) : '';
-    const query   = method === 'GET'  && Object.keys(params).length
-                  ? '?' + qs.stringify(params) : '';
+    const nonce = this._nonce();
+    let postData = '';
+    let query = '';
+
+    if (method === 'POST') {
+      postData = qs.stringify(params);
+    } else if (method === 'GET' && Object.keys(params).length) {
+      query = '?' + qs.stringify(params);
+      postData = qs.stringify(params); // <-- FIX: Correctly signing query params
+    }
 
     const headers = {
-      APIKey:  this.apiKey,
-      Nonce:   nonce,
-      Authent: this._sign(endpoint, nonce, post),
+      APIKey: this.apiKey,
+      Nonce: nonce,
+      Authent: this._sign(endpoint, nonce, postData),
       'User-Agent': 'TradingBot/1.0'
     };
     if (method === 'POST') headers['Content-Type'] = 'application/x-www-form-urlencoded';
@@ -44,7 +49,7 @@ export class KrakenFuturesApi {
     const url = this.baseUrl + endpoint + query;
 
     try {
-      const { data } = await axios({ method, url, headers, data: post });
+      const { data } = await axios({ method, url, headers, data: postData });
       return data;
     } catch (e) {
       const info = e.response?.data || { message: e.message };
@@ -52,44 +57,40 @@ export class KrakenFuturesApi {
     }
   }
 
-  /* ---------- public endpoints ---------- */
-  getInstruments      = () => this._request('GET', '/derivatives/api/v3/instruments');
-  getTickers          = () => this._request('GET', '/derivatives/api/v3/tickers');
-  getOrderbook        = p => this._request('GET', '/derivatives/api/v3/orderbook', p);
-  getHistory          = p => this._request('GET', '/derivatives/api/v3/history', p);
+  // --- public endpoints ---
+  getInstruments = () => this._request('GET', '/derivatives/api/v3/instruments');
+  getTickers = () => this._request('GET', '/derivatives/api/v3/tickers');
+  getOrderbook = p => this._request('GET', '/derivatives/api/v3/orderbook', p);
+  getHistory = p => this._request('GET', '/derivatives/api/v3/history', p);
 
-  /* ---------- private endpoints ---------- */
-  getAccounts         = () => this._request('GET', '/derivatives/api/v3/accounts');
-  getOpenOrders       = () => this._request('GET', '/derivatives/api/v3/openorders');
-  getOpenPositions    = () => this._request('GET', '/derivatives/api/v3/openpositions');
-  getRecentOrders     = p => this._request('GET', '/derivatives/api/v3/recentorders', p);
-  getFills            = p => this._request('GET', '/derivatives/api/v3/fills', p);
-  getTransfers        = p => this._request('GET', '/derivatives/api/v3/transfers', p);
-  getNotifications    = () => this._request('GET', '/derivatives/api/v3/notifications');
+  // --- private endpoints ---
+  getAccounts = () => this._request('GET', '/derivatives/api/v3/accounts');
+  getOpenOrders = () => this._request('GET', '/derivatives/api/v3/openorders');
+  getOpenPositions = () => this._request('GET', '/derivatives/api/v3/openpositions');
+  getRecentOrders = p => this._request('GET', '/derivatives/api/v3/recentorders', p);
+  getFills = p => this._request('GET', '/derivatives/api/v3/fills', p);
+  getTransfers = p => this._request('GET', '/derivatives/api/v3/transfers', p);
+  getNotifications = () => this._request('GET', '/derivatives/api/v3/notifications');
 
-  sendOrder           = p => this._request('POST', '/derivatives/api/v3/sendorder', p);
-  editOrder           = p => this._request('POST', '/derivatives/api/v3/editorder', p);
-  cancelOrder         = p => this._request('POST', '/derivatives/api/v3/cancelorder', p);
-  cancelAllOrders     = p => this._request('POST', '/derivatives/api/v3/cancelallorders', p);
-  cancelAllOrdersAfter= p => this._request('POST', '/derivatives/api/v3/cancelallordersafter', p);
-  batchOrder          = p => this._request('POST', '/derivatives/api/v3/batchorder', p);
+  sendOrder = p => this._request('POST', '/derivatives/api/v3/sendorder', p);
+  editOrder = p => this._request('POST', '/derivatives/api/v3/editorder', p);
+  cancelOrder = p => this._request('POST', '/derivatives/api/v3/cancelorder', p);
+  cancelAllOrders = p => this._request('POST', '/derivatives/api/v3/cancelallorders', p);
+  cancelAllOrdersAfter = p => this._request('POST', '/derivatives/api/v3/cancelallordersafter', p);
+  batchOrder = p => this._request('POST', '/derivatives/api/v3/batchorder', p);
 
   async fetchKrakenData({ pair = 'XBTUSD', interval = 60, since } = {}) {
     const params = { pair, interval };
     if (since) params.since = since;
-  
     const { data } = await axios.get('https://api.kraken.com/0/public/OHLC', { params });
     if (data.error?.length) throw new Error(data.error.join(', '));
-  
     const key = Object.keys(data.result).find(k => k !== 'last');
     return (data.result[key] || []).map(o => ({
-      date:  new Date(o[0] * 1000).toISOString(),
-      open:  +o[1], high: +o[2], low: +o[3], close: +o[4], volume: +o[6]
+      date: +o[0], open: +o[1], high: +o[2], low: +o[3], close: +o[4], volume: +o[6]
     }));
   }
 
-  // --- NEW METHOD ---
-  getPositionEvents   = p => this._request('GET', '/api/history/v3/positions', p);
+  getPositionEvents = p => this._request('GET', '/api/history/v3/positions', p);
 }
 
 export default KrakenFuturesApi;
