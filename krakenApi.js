@@ -4,7 +4,7 @@ import axios from 'axios';
 import qs from 'querystring';
 import { log } from './logger.js';
 
-const BASE_URL = 'https://demo-futures.kraken.com';
+const BASE_URL = 'https://futures.kraken.com';
 
 export class KrakenFuturesApi {
   constructor(apiKey, apiSecret) {
@@ -98,7 +98,9 @@ export class KrakenFuturesApi {
 
   // LOGGING: Log both params and the result for getPositionEvents
   async getPositionEvents(p) {
+    log.info('DEBUG: Calling getPositionEvents with params:', p);
     const result = await this._request('GET', '/api/history/v3/positions', p);
+    log.info('DEBUG: getPositionEvents result:', JSON.stringify(result, null,2));
     return result;
   }
 }
