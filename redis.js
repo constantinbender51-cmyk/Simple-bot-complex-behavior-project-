@@ -1,3 +1,4 @@
+// redis.js
 import { createClient } from 'redis';
 export const kv = createClient({ url: process.env.REDIS_URL });
 kv.on('error', console.error);
