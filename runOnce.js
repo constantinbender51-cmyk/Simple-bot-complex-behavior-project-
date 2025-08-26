@@ -105,9 +105,10 @@ export async function runOnce() {
     }
     
     // --- SAVE ONCE, AT THE END ---
+    // Make sure the lastPositionEventsFetch is explicitly part of the saved context.
+    plan.nextCtx.lastPositionEventsFetch = ctx.lastPositionEventsFetch;
     ctx.nextCtx = plan.nextCtx;
-
-    // --- NEW LOGGING ADDED HERE ---
+    
     log.info(`💾 LastPositionEventsFetch before save: ${ctx.lastPositionEventsFetch}`);
 
     await saveContext(ctx);
