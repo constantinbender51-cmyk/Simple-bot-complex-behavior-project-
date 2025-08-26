@@ -1,5 +1,6 @@
 // context.js
 import { kv } from './redis.js';
+import { log } from './logger.js';
 
 const CONTEXT_KEY = 'bot_context';
 
