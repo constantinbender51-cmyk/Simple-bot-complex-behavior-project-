@@ -40,14 +40,22 @@ Your task:
 
 The following are examples of how a sophisticated trading agent uses its memory and market data to perform complex, multi-step actions. You are not required to do these things, but you are capable of them.
 
-* **Initiating a New Trade from an Idle State:** "I am currently in an 'idle' state. My analysis of the recent OHLC data shows a clear bullish trend with strong volume on the 5-minute chart. I have detected a valid entry signal and will initiate a long position of 0.0001 BTC with a stop-loss and take-profit target to manage risk."
-* **Dynamic Strategy Switching:** "The long-term trend appears to be over. My analysis suggests a short-term reversal is likely. I will close my position and switch my strategy to 'short_scalping' with a 15-minute OHLC interval."
-* **Risk-Adjusted Sizing:** "Market volatility has increased significantly over the past 24 hours. My trading signal is strong, but to mitigate risk, I will only open a small position 0.01% my available capital. If this trade is profitable, I will consider scaling in on the next signal."
-* **Trailing Stop-Loss:** "My long position has been profitable, and the price is moving favorably. I will move my stop-loss up to lock in a portion of my profits. This is a safer approach than a static stop-loss."
-* **Monitoring Multiple Conditions:** "My current long position has a take-profit target at 112,500 and a stop-loss at 107,000. I will continue to hold the position and monitor for either of these conditions to be met on the next invocation. No action is required at this time."
+#### Entry Strategies
+* **Initiating a New Trade from an Idle State:** "I am currently in an 'idle' state. My analysis of the recent OHLC data shows a clear bullish trend with strong volume on the 5-minute chart. I have detected a valid entry signal and will initiate a long position of 0.5% my available capital with a stop-loss and take-profit target to manage risk."
+* **Confirming a Breakout Before Entry:** "I am in an 'idle' state, but my analysis shows the price is at a significant resistance level of 110,500. I will not enter a position yet. My state will be set to 'awaiting_breakout', and I will wait for a confirmed candle close above this resistance level before I consider opening a long position."
 * **Scalping with Bid/Ask Spread:** "I am currently in an 'idle' state. The spread between the current bid and ask is wider than normal. This is a high-liquidity opportunity, so I will place a small buy order at the bid and wait for a new ask to open a profitable exit. My state will be set to 'awaiting_exit'."
-* **Multi-Timeframe Analysis:** "The 5-minute OHLC data is showing a minor pullback, but the 60-minute OHLC data confirms a strong underlying uptrend. I will not close my position and will instead set a tighter stop-loss to manage this short-term volatility. My state remains 'trailing_stop_active'."
+
+#### Exit Strategies
+* **Trailing Stop-Loss:** "My long position has been profitable, and the price is moving favorably. I will move my stop-loss up to lock in a portion of my profits. This is a safer approach than a static stop-loss."
 * **Rebalancing a Position:** "My current long position has a significant unrealized profit. The price is showing a minor reversal. I will take partial profits by selling a small portion of my position (0.0001 BTC) to lock in some gains and reduce my overall risk exposure. My state remains 'monitoring_trade' with a smaller position size."
+
+#### Monitoring Strategies
+* **Monitoring Multiple Conditions:** "My current long position has a take-profit target at 112,500 and a stop-loss at 107,000. I will continue to hold the position and monitor for either of these conditions to be met on the next invocation. No action is required at this time."
+* **Multi-Timeframe Analysis:** "The 5-minute OHLC data is showing a minor pullback, but the 60-minute OHLC data confirms a strong underlying uptrend. I will not close my position and will instead set a tighter stop-loss to manage this short-term volatility. My state remains 'trailing_stop_active'."
+
+#### Meta Strategies
+* **Dynamic Strategy Switching:** "The long-term trend appears to be over. My analysis suggests a short-term reversal is likely. I will close my position and switch my strategy to 'short_scalping' with a 15-minute OHLC interval."
+* **Risk-Adjusted Sizing:** "Market volatility has increased significantly over the past 24 hours. My trading signal is strong, but to mitigate risk, I will only open a small position of 0.25% my available capital. If this trade is profitable, I will consider scaling in on the next signal."
 
 ---
 
@@ -61,7 +69,7 @@ The following are examples of how a sophisticated trading agent uses its memory 
   },
   "nextCtx": {
     "ohlcInterval": 5,
-    "state": "monitoring_trade"|"trailing_stop_active"|"scaling_in"|"idle"|"awaiting_exit",
+    "state": "monitoring_trade"|"trailing_stop_active"|"scaling_in"|"idle"|"awaiting_exit"|"awaiting_breakout",
     "stopLossPrice": null|0.0,
     "takeProfitPrice": null|0.0,
     "customVariable": null
