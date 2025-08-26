@@ -30,7 +30,7 @@ export async function runOnce() {
     const ctx = await loadContext();
     const lastFillTime = (Date.now() - 1000 * 60 * 60 * 24).toString();
 
-    const snap = await getMarketSnapshot(lastFillTime, ctx.lastPositionEventsFetch);
+    const snap = await getMarketSnapshot(lastFillTime);//ctx.lastPositionEventsFetch
     console.log(`Snap ${JSON.stringify(snap, null, 2)}`);
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
 
