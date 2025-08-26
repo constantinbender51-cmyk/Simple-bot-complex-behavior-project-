@@ -28,7 +28,7 @@ export async function getMarketSnapshot( lastFetchTime) {
       markPrice: markPx,
       position,
       balance,
-      events: events.events || []
+      events: events.elements || []
     };
   } catch (err) {
     log.error('marketProxy failed:', err);
