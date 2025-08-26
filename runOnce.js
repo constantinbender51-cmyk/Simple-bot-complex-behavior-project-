@@ -2,7 +2,7 @@
 import { getMarketSnapshot } from './marketProxy.js';
 import { decidePlan } from './decisionEngine.js';
 import { interpret } from './interpreter.js';
-import { saveContext, loadContext, saveJournalEntry, saveActionEntry } from './context.js';
+import { saveContext, loadContext } from './context.js';
 import { kv } from './redis.js';
 import { log } from './logger.js';
 import KrakenFuturesApi from './krakenApi.js';
@@ -26,16 +26,20 @@ export async function runOnce() {
     const limitPerDay = 500;
     const callsLeft = limitPerDay - callsSoFar;
 
+    // --- LOAD ONCE, AT THE START ---
     const ctx = await loadContext();
-    if (!ctx.journal) {
-        ctx.journal = [];
-    }
 
-    // The key fix: set the initial fetch timestamp on the very first run
+    // The key fix: set the initial fetch timestamp and ensure journal is an array
     if (!ctx.lastPositionEventsFetch) {
       ctx.lastPositionEventsFetch = Date.now();
       log.info('🤖 Initializing bot for the first time. Starting event tracking from now.');
     }
+    // Fix for TypeError: Ensure the journal is an array
+    if (!ctx.journal) {
+      ctx.journal = [];
+    }
+
+    // --------------------------------
 
     const snap = await getMarketSnapshot(ctx.lastPositionEventsFetch);
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
@@ -48,56 +52,71 @@ export async function runOnce() {
       callsLeft
     });
     
-    // The fix: Log the AI's action to the long-term journal BEFORE interpreting it.
-    // This ensures the timestamp and market data are accurate for the decision moment.
-    await saveActionEntry({
+    // --- UPDATE CONTEXT IN-MEMORY ---
+    // Log the AI's action directly to the local context object
+    const actionEntry = {
+      timestamp: new Date().toISOString(),
       reason: plan.reason,
       action: plan.action,
       marketData: {
         markPrice: snap.markPrice,
         position: snap.position,
         balance: snap.balance,
-      }
-    });
+      },
+      type: 'bot_action'
+    };
+    ctx.journal.push(actionEntry);
 
-    // Now, execute the plan. This might involve a wait time.
+    // Now, execute the plan.
     await interpret(plan.action);
 
-    // Now, process any new events and save them to the journal
+    // Process any new events and add them to the local journal
     if (snap.events && snap.events.length > 0) {
-      snap.events.forEach(apiEvent => {
-        if (apiEvent.event && apiEvent.event.PositionUpdate) {
-          const event = apiEvent.event.PositionUpdate;
-          if (event.updateReason === 'trade' && event.positionChange === 'close') {
-            const journalEntry = {
-              closedTime: new Date(apiEvent.timestamp).toISOString(),
-              pair: event.tradeable,
-              pnl: +event.realizedPnL,
-              side: event.oldPosition === 'long' ? 'sell' : 'buy',
-              size: +event.positionChange,
-              entryPrice: +event.oldAverageEntryPrice,
-              exitPrice: +event.executionPrice,
-              type: 'realized_pnl',
-            };
-            
-            // Check for duplicates before saving
-            if (!ctx.journal.find(j => j.closedTime === journalEntry.closedTime && j.pair === journalEntry.pair)) {
-              saveJournalEntry(journalEntry); // Use the new function to save the entry
+      // Filter events to only process those that are truly new
+      const newEvents = snap.events.filter(apiEvent => {
+        // Convert Kraken's timestamp (in seconds) to milliseconds for comparison
+        const eventTimeMs = apiEvent.timestamp * 1000;
+        return eventTimeMs > ctx.lastPositionEventsFetch;
+      });
+      
+      if (newEvents.length > 0) {
+        newEvents.forEach(apiEvent => {
+          if (apiEvent.event && apiEvent.event.PositionUpdate) {
+            const event = apiEvent.event.PositionUpdate;
+            if (event.updateReason === 'trade' && event.positionChange === 'close') {
+              const journalEntry = {
+                closedTime: new Date(apiEvent.timestamp * 1000).toISOString(),
+                pair: event.tradeable,
+                pnl: +event.realizedPnL,
+                side: event.oldPosition === 'long' ? 'sell' : 'buy',
+                size: +event.positionChange, 
+                entryPrice: +event.oldAverageEntryPrice,
+                exitPrice: +event.executionPrice,
+                type: 'realized_pnl',
+              };
+              
+              ctx.journal.push(journalEntry);
               log.info('📈 Realized P&L added to journal:', journalEntry);
             }
           }
-        }
-      });
-      ctx.lastPositionEventsFetch = Date.now();
+        });
+
+        // Update the last fetch timestamp.
+        const latestEvent = newEvents[newEvents.length - 1];
+        ctx.lastPositionEventsFetch = latestEvent.timestamp * 1000;
+      }
     }
     
+    // --- SAVE ONCE, AT THE END ---
     // Save the AI's state for the next invocation
-    await saveContext(plan.nextCtx);
+    ctx.nextCtx = plan.nextCtx;
+    await saveContext(ctx);
+    // ----------------------------
 
     await kv.set(keyToday, callsSoFar + 1);
 
     log.info('✅ Cycle complete. Plan:', plan);
-    log.info('📖 Journal Contents:', JSON.stringify((await loadContext()).journal, null, 2));
+    log.info('📖 Journal Contents:', JSON.stringify(ctx.journal, null, 2));
 
     return plan;
   } catch (e) {
