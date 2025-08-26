@@ -31,10 +31,18 @@ export async function runOnce() {
     
     log.info('📊 Keys in context loaded from Redis:', Object.keys(ctx));
 
-    if (!ctx.lastPositionEventsFetch) {
+    // --- NEW LOGIC TO READ FROM NEXTCTX ---
+    // Check for the nested timestamp before initializing.
+    const lastFetchFromNextCtx = ctx.nextCtx ? ctx.nextCtx.lastPositionEventsFetch : null;
+
+    if (!ctx.lastPositionEventsFetch && !lastFetchFromNextCtx) {
       ctx.lastPositionEventsFetch = Date.now();
       log.info('🤖 Initializing bot for the first time. Starting event tracking from now.');
+    } else if (lastFetchFromNextCtx) {
+      // If we found it in nextCtx, use that value.
+      ctx.lastPositionEventsFetch = lastFetchFromNextCtx;
     }
+    // ----------------------------
 
     if (!ctx.journal) {
       ctx.journal = [];
@@ -105,19 +113,22 @@ export async function runOnce() {
     }
     
     // --- SAVE ONCE, AT THE END ---
-    // Make sure the lastPositionEventsFetch is explicitly part of the saved context.
-    plan.nextCtx.lastPositionEventsFetch = ctx.lastPositionEventsFetch;
-    ctx.nextCtx = plan.nextCtx;
-    
-    log.info(`💾 LastPositionEventsFetch before save: ${ctx.lastPositionEventsFetch}`);
+    // Merge the AI's plan and the bot's persistent state into a single object for saving.
+    const finalCtx = {
+      ...plan.nextCtx,
+      journal: ctx.journal,
+      lastPositionEventsFetch: ctx.lastPositionEventsFetch
+    };
 
-    await saveContext(ctx);
+    log.info(`💾 LastPositionEventsFetch before save: ${finalCtx.lastPositionEventsFetch}`);
+
+    await saveContext(finalCtx);
     log.info('💾 Save context operation requested.');
 
     await kv.set(keyToday, callsSoFar + 1);
 
     log.info('✅ Cycle complete. Plan:', plan);
-    log.info(`📖 Journal: Current length is ${ctx.journal.length}.`);
+    log.info(`📖 Journal: Current length is ${finalCtx.journal.length}.`);
     log.info(`📈 P&L Events: Added ${pnlEventsAdded} new events.`);
 
     return plan;
