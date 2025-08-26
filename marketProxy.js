@@ -1,23 +1,24 @@
-// At the top, ensure the `api` object is passed in or loaded.
-// The current setup uses a global-like variable, so you'll need to modify it
-// to accept an injected dependency. The easiest way is to modify `runOnce`
-// and pass `krakenApi` into `getMarketSnapshot`.
-
 // marketProxy.js
+import KrakenFuturesApi from './krakenApi.js';
 import { log } from './logger.js';
 
 const PAIR = 'PF_XBTUSD';
+
+const api = new KrakenFuturesApi(
+  process.env.KRAKEN_API_KEY,
+  process.env.KRAKEN_SECRET_KEY
+);
 
 /**
  * Fetches a snapshot of the current market data and new position events.
  * The 'since' parameter is converted to a Unix timestamp (seconds)
  * to ensure compatibility with the Kraken API.
- * @param {object} api - The Kraken API instance (real or simulated).
  * @param {number} lastPositionEventsFetch - The timestamp in milliseconds of the last event fetch.
  * @returns {object} A market data snapshot.
  */
-export async function getMarketSnapshot(api, lastPositionEventsFetch) {
+export async function getMarketSnapshot(lastPositionEventsFetch) {
   try {
+    // The fix: convert the JavaScript timestamp (milliseconds) to a Unix timestamp (seconds).
     const sinceInSeconds = lastPositionEventsFetch ? Math.floor(lastPositionEventsFetch / 1000) : undefined;
     
     const [tickers, positions, accounts, events] = await Promise.all([
