@@ -10,10 +10,6 @@ import { log } from './logger.js';
 
 const PAIR = 'PF_XBTUSD';
 
-// --- DEBUGGING: Check if API keys are loaded correctly ---
-log.info('API Key exists:', !!process.env.KRAKEN_API_KEY);
-log.info('API Secret exists:', !!process.env.KRAKEN_SECRET_KEY);
-
 const krakenApi = new KrakenFuturesApi(
   process.env.KRAKEN_API_KEY,
   process.env.KRAKEN_SECRET_KEY
@@ -31,8 +27,10 @@ export async function runOnce() {
     const limitPerDay = 500;
     const callsLeft = limitPerDay - callsSoFar;
 
-    const snap = await getMarketSnapshot(PAIR);
     const ctx = await loadContext();
+    const lastFillTime = (Date.now() - 1000 * 60 * 60 * 24).toString();
+
+    const snap = await getMarketSnapshot(lastFillTime, ctx.lastPositionEventsFetch);
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
 
     const plan = await decidePlan({
@@ -44,43 +42,32 @@ export async function runOnce() {
     });
     console.log('📋 PLAN:', plan);
 
-    // --- DEBUGGING LOGIC ---
-    try {
-      const lastFetch = ctx.lastPositionEventsFetch || 0;
-      const events = await krakenApi.getPositionEvents({ since: lastFetch });
-      log.info('✅ Get Position Events succeeded:', JSON.stringify(events));
+    await interpret(plan.action);
 
-      if (events && events.length > 0) {
-        ctx.journal = ctx.journal || [];
-        events.forEach(event => {
-          if (event.updateReason === 'trade' && event.positionChange === 'close') {
-            const journalEntry = {
-              closedTime: new Date(event.timestamp).toISOString(),
-              pair: event.tradeable,
-              pnl: +event.realizedPnL,
-              side: event.oldPosition === 'long' ? 'sell' : 'buy',
-              size: +event.positionChange,
-              entryPrice: +event.oldAverageEntryPrice,
-              exitPrice: +event.executionPrice,
-              type: 'realized_pnl',
-            };
-
-            if (!ctx.journal.find(j => j.closedTime === journalEntry.closedTime && j.pair === journalEntry.pair)) {
-              ctx.journal.push(journalEntry);
-              log.info('📈 Realized P&L added to journal:', journalEntry);
-            }
+    if (snap.events && snap.events.length > 0) {
+      ctx.journal = ctx.journal || [];
+      snap.events.forEach(event => {
+        if (event.updateReason === 'trade' && event.positionChange === 'close') {
+          const journalEntry = {
+            closedTime: new Date(event.timestamp).toISOString(),
+            pair: event.tradeable,
+            pnl: +event.realizedPnL,
+            side: event.oldPosition === 'long' ? 'sell' : 'buy',
+            size: +event.positionChange,
+            entryPrice: +event.oldAverageEntryPrice,
+            exitPrice: +event.executionPrice,
+            type: 'realized_pnl',
+          };
+          if (!ctx.journal.find(j => j.closedTime === journalEntry.closedTime && j.pair === journalEntry.pair)) {
+            ctx.journal.push(journalEntry);
+            log.info('📈 Realized P&L added to journal:', journalEntry);
           }
-        });
-        ctx.lastPositionEventsFetch = Date.now();
-      }
-
-      log.info('📖 Journal Contents:', JSON.stringify(ctx.journal, null, 2));
-
-    } catch (debugError) {
-        log.error("Debugging API calls failed:", debugError.message);
+        }
+      });
+      ctx.lastPositionEventsFetch = Date.now();
     }
     
-    await interpret(plan.action);
+    log.info('📖 Journal Contents:', JSON.stringify(ctx.journal, null, 2));
 
     await saveContext({
       nextCtx: plan.nextCtx,
