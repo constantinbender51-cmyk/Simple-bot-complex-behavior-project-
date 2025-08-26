@@ -87,7 +87,7 @@ export async function runOnce() {
       nextCtx: plan.nextCtx, // Add the AI's plan context
       reason: plan.reason,
       action: plan.action,
-      marketData: snap,
+      marketData: snap.markPrice,
       journal: journal.slice(-10) // Keep the last 10 entries
     };
 
