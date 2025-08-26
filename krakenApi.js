@@ -4,7 +4,7 @@ import axios from 'axios';
 import qs from 'querystring';
 import { log } from './logger.js';
 
-const BASE_URL = 'https://futures.kraken.com';
+const BASE_URL = 'https://demo-futures.kraken.com';
 
 export class KrakenFuturesApi {
   constructor(apiKey, apiSecret) {
