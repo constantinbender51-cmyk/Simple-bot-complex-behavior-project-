@@ -45,6 +45,19 @@ export async function runOnce() {
       callsLeft
     });
     
+    // The fix: Log the AI's action to the long-term journal BEFORE interpreting it.
+    // This ensures the timestamp and market data are accurate for the decision moment.
+    await saveActionEntry({
+      reason: plan.reason,
+      action: plan.action,
+      marketData: {
+        markPrice: snap.markPrice,
+        position: snap.position,
+        balance: snap.balance,
+      }
+    });
+
+    // Now, execute the plan. This might involve a wait time.
     await interpret(plan.action);
 
     // Now, process any new events and save them to the journal
@@ -75,21 +88,11 @@ export async function runOnce() {
       ctx.lastPositionEventsFetch = Date.now();
     }
     
-    // Save the bot's action to the long-term journal
-    await saveActionEntry({
-      reason: plan.reason,
-      action: plan.action,
-      marketData: {
-        markPrice: snap.markPrice,
-        position: snap.position,
-        balance: snap.balance,
-      }
-    });
-
     // Save the AI's state for the next invocation
     await saveContext(plan.nextCtx);
 
     await kv.set(keyToday, callsSoFar + 1);
+
     log.info('✅ Cycle complete. Plan:', plan);
     log.info('📖 Journal Contents:', JSON.stringify((await loadContext()).journal, null, 2));
 
