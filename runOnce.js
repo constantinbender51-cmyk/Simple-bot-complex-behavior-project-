@@ -28,6 +28,9 @@ export async function runOnce() {
 
     // --- LOAD ONCE, AT THE START ---
     const ctx = await loadContext();
+    
+    // --- NEW LOGGING ADDED HERE ---
+    log.info('📊 Context loaded from Redis:', JSON.stringify(ctx, null, 2));
 
     if (!ctx.lastPositionEventsFetch) {
       ctx.lastPositionEventsFetch = Date.now();
@@ -37,10 +40,6 @@ export async function runOnce() {
     if (!ctx.journal) {
       ctx.journal = [];
     }
-
-    // --- NEW LOGGING ADDED HERE ---
-    log.info(`DEBUG: lastPositionEventsFetch (ms): ${ctx.lastPositionEventsFetch}`);
-    log.info(`DEBUG: lastPositionEventsFetch (date): ${new Date(ctx.lastPositionEventsFetch).toISOString()}`);
     // ----------------------------
 
     const snap = await getMarketSnapshot(ctx.lastPositionEventsFetch);
