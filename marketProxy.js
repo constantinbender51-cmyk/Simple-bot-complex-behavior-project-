@@ -4,12 +4,12 @@ import { log } from './logger.js';
 
 const PAIR = 'PF_XBTUSD';
 
-export async function getMarketSnapshot() {
-  const api = new KrakenFuturesApi(
-    process.env.KRAKEN_API_KEY,
-    process.env.KRAKEN_SECRET_KEY
-  );
+const api = new KrakenFuturesApi(
+  process.env.KRAKEN_API_KEY,
+  process.env.KRAKEN_SECRET_KEY
+);
 
+export async function getMarketSnapshot() {
   try {
     const [tickers, positions, accounts, fills] = await Promise.all([
       api.getTickers(),
@@ -26,12 +26,23 @@ export async function getMarketSnapshot() {
 
     return {
       markPrice: markPx,
-      position,               // null or { side: 'long' | 'short', size: '0.001' }
+      position,
       balance,
       fills: fills.fills || []
     };
   } catch (err) {
     log.error('marketProxy failed:         ', err);
+    throw err;
+  }
+}
+
+// --- NEW FUNCTION TO GET POSITION EVENTS ---
+export async function getPositionHistory(since) {
+  try {
+    const events = await api.getPositionEvents({ since });
+    return events;
+  } catch (err) {
+    log.error('Error fetching position history:', err);
     throw err;
   }
 }
