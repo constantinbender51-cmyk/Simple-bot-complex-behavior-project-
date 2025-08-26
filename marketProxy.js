@@ -9,40 +9,31 @@ const api = new KrakenFuturesApi(
   process.env.KRAKEN_SECRET_KEY
 );
 
-export async function getMarketSnapshot() {
+export async function getMarketSnapshot(lastFillTime, lastFetchTime) {
   try {
-    const [tickers, positions, accounts, fills] = await Promise.all([
+    const [tickers, positions, accounts, fills, events] = await Promise.all([
       api.getTickers(),
       api.getOpenPositions(),
       api.getAccounts(),
-      api.getFills({ lastFillTime: Date.now() - 1000 * 60 * 60 * 24 }) // 24 h
+      api.getFills({ lastFillTime }),
+      api.getPositionEvents({ since: lastFetchTime })
     ]);
 
-    const ticker   = tickers.tickers.find(t => t.symbol === PAIR);
+    const ticker = tickers.tickers.find(t => t.symbol === PAIR);
     const position = positions.openPositions.find(p => p.symbol === PAIR) || null;
     const flexAccount = accounts.accounts?.flex;
     const balance = flexAccount ? +flexAccount.availableMargin : 0;
-    const markPx   = +ticker?.markPrice || 0;
+    const markPx = +ticker?.markPrice || 0;
 
     return {
       markPrice: markPx,
       position,
       balance,
-      fills: fills.fills || []
+      fills: fills.fills || [],
+      events: events.events || []
     };
   } catch (err) {
-    log.error('marketProxy failed:         ', err);
-    throw err;
-  }
-}
-
-// --- NEW FUNCTION TO GET POSITION EVENTS ---
-export async function getPositionHistory(since) {
-  try {
-    const events = await api.getPositionEvents({ since });
-    return events;
-  } catch (err) {
-    log.error('Error fetching position history:', err);
+    log.error('marketProxy failed:', err);
     throw err;
   }
 }
