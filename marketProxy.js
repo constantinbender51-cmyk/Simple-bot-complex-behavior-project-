@@ -9,13 +9,12 @@ const api = new KrakenFuturesApi(
   process.env.KRAKEN_SECRET_KEY
 );
 
-export async function getMarketSnapshot(lastFillTime, lastFetchTime) {
+export async function getMarketSnapshot( lastFetchTime) {
   try {
     const [tickers, positions, accounts, fills, events] = await Promise.all([
       api.getTickers(),
       api.getOpenPositions(),
       api.getAccounts(),
-      api.getFills({ lastFillTime }),
       api.getPositionEvents({ since: lastFetchTime })
     ]);
 
@@ -29,7 +28,6 @@ export async function getMarketSnapshot(lastFillTime, lastFetchTime) {
       markPrice: markPx,
       position,
       balance,
-      fills: fills.fills || [],
       events: events.events || []
     };
   } catch (err) {
