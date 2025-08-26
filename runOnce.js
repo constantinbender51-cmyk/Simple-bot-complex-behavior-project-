@@ -29,19 +29,14 @@ export async function runOnce() {
     // --- LOAD ONCE, AT THE START ---
     const ctx = await loadContext();
 
-    // The key fix: set the initial fetch timestamp and ensure journal is an array
     if (!ctx.lastPositionEventsFetch) {
       ctx.lastPositionEventsFetch = Date.now();
       log.info('🤖 Initializing bot for the first time. Starting event tracking from now.');
     }
-    // Fix for TypeError: Ensure the journal is an array
+
     if (!ctx.journal) {
       ctx.journal = [];
     }
-
-    log.info(`DEBUG: lastPositionEventsFetch (ms): ${ctx.lastPositionEventsFetch}`);
-    log.info(`DEBUG: lastPositionEventsFetch (date): ${new Date(ctx.lastPositionEventsFetch).toISOString()}`);
-    // --------------------------------
 
     const snap = await getMarketSnapshot(ctx.lastPositionEventsFetch);
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
@@ -55,7 +50,6 @@ export async function runOnce() {
     });
     
     // --- UPDATE CONTEXT IN-MEMORY ---
-    // Log the AI's action directly to the local context object
     const actionEntry = {
       timestamp: new Date().toISOString(),
       reason: plan.reason,
@@ -69,25 +63,13 @@ export async function runOnce() {
     };
     ctx.journal.push(actionEntry);
 
-    // Now, execute the plan.
     await interpret(plan.action);
 
-    // Process any new events and add them to the local journal
     if (snap.events && snap.events.length > 0) {
-      log.info(`DEBUG: Received ${snap.events.length} events from API.`);
-
-      // Filter events to only process those that are truly new
-      const newEvents = snap.events.filter(apiEvent => {
-        // The timestamp is already in milliseconds, so no multiplication is needed.
-        const eventTimeMs = apiEvent.timestamp;
-        log.info(`DEBUG:   Event timestamp raw: ${apiEvent.timestamp}`);
-        log.info(`DEBUG:   Event timestamp (ms): ${eventTimeMs}`);
-        
-        return eventTimeMs > ctx.lastPositionEventsFetch;
-      });
+      const newEvents = snap.events.filter(apiEvent => apiEvent.timestamp > ctx.lastPositionEventsFetch);
       
       if (newEvents.length > 0) {
-        log.info(`DEBUG: Found ${newEvents.length} new events after filtering.`);
+        log.info(`✅ Found ${newEvents.length} new events and added to journal.`);
         newEvents.forEach(apiEvent => {
           if (apiEvent.event && apiEvent.event.PositionUpdate) {
             const event = apiEvent.event.PositionUpdate;
@@ -104,22 +86,19 @@ export async function runOnce() {
               };
               
               ctx.journal.push(journalEntry);
-              log.info('📈 Realized P&L added to journal:', journalEntry);
             }
           }
         });
 
-        // Update the last fetch timestamp.
         const latestEvent = newEvents[newEvents.length - 1];
         ctx.lastPositionEventsFetch = latestEvent.timestamp;
       }
     }
     
     // --- SAVE ONCE, AT THE END ---
-    // Save the AI's state for the next invocation
     ctx.nextCtx = plan.nextCtx;
     await saveContext(ctx);
-    // ----------------------------
+    log.info('💾 Save context operation requested.');
 
     await kv.set(keyToday, callsSoFar + 1);
 
