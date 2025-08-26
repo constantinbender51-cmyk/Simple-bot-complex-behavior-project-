@@ -9,10 +9,21 @@ import KrakenFuturesApi from './krakenApi.js';
 
 const PAIR = 'PF_XBTUSD';
 
-const krakenApi = new KrakenFuturesApi(
-  process.env.KRAKEN_API_KEY,
-  process.env.KRAKEN_SECRET_KEY
-);
+// Before the Kraken API initialization
+let krakenApi;
+if (process.env.DRY_RUN === 'true') {
+  const { default: SimulatedKrakenApi } = await import('./SimulatedKrakenApi.js');
+  krakenApi = new SimulatedKrakenApi(
+    process.env.KRAKEN_API_KEY,
+    process.env.KRAKEN_SECRET_KEY
+  );
+  await krakenApi.init();
+} else {
+  krakenApi = new KrakenFuturesApi(
+    process.env.KRAKEN_API_KEY,
+    process.env.KRAKEN_SECRET_KEY
+  );
+}
 
 async function fetchOHLC(intervalMinutes, count) {
   const since = Math.floor(Date.now() / 1000 - intervalMinutes * 60 * count);
