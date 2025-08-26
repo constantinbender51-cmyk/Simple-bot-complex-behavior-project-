@@ -1,3 +1,4 @@
+// krakenApi.js
 import crypto from 'crypto';
 import axios from 'axios';
 import qs from 'querystring';
@@ -13,7 +14,6 @@ export class KrakenFuturesApi {
     this.nonceCtr = 0;
   }
 
-  /* ---------- internal helpers ---------- */
   _nonce() {
     if (++this.nonceCtr > 9999) this.nonceCtr = 0;
     return Date.now() + this.nonceCtr.toString().padStart(5, '0');
@@ -52,13 +52,11 @@ export class KrakenFuturesApi {
     }
   }
 
-  /* ---------- public endpoints ---------- */
   getInstruments      = () => this._request('GET', '/derivatives/api/v3/instruments');
   getTickers          = () => this._request('GET', '/derivatives/api/v3/tickers');
   getOrderbook        = p => this._request('GET', '/derivatives/api/v3/orderbook', p);
   getHistory          = p => this._request('GET', '/derivatives/api/v3/history', p);
 
-  /* ---------- private endpoints ---------- */
   getAccounts         = () => this._request('GET', '/derivatives/api/v3/accounts');
   getOpenOrders       = () => this._request('GET', '/derivatives/api/v3/openorders');
   getOpenPositions    = () => this._request('GET', '/derivatives/api/v3/openpositions');
@@ -88,8 +86,29 @@ export class KrakenFuturesApi {
     }));
   }
 
-  // --- NEW METHOD ---
-  getPositionEvents   = p => this._request('GET', '/api/history/v3/positions', p);
+  // This method is now properly implemented to sign GET params
+  async getPositionEvents(params = {}) {
+    const endpoint = '/api/history/v3/positions';
+    const nonce = this._nonce();
+    const postData = qs.stringify(params);
+
+    const headers = {
+      APIKey: this.apiKey,
+      Nonce: nonce,
+      Authent: this._sign(endpoint, nonce, postData),
+      'User-Agent': 'TradingBot/1.0',
+    };
+
+    const url = `${this.baseUrl}${endpoint}?${postData}`;
+
+    try {
+      const { data } = await axios({ method: 'GET', url, headers, data: postData });
+      return data;
+    } catch (e) {
+      const info = e.response?.data || { message: e.message };
+      throw new Error(`[GET ${endpoint}] ${JSON.stringify(info)}`);
+    }
+  }
 }
 
 export default KrakenFuturesApi;
