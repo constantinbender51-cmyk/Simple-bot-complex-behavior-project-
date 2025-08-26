@@ -2,7 +2,7 @@
 import { getMarketSnapshot } from './marketProxy.js';
 import { decidePlan } from './decisionEngine.js';
 import { interpret } from './interpreter.js';
-import { loadContext, saveState } from './context.js';
+import { saveContext, loadContext, saveJournalEntry, saveActionEntry } from './context.js';
 import { kv } from './redis.js';
 import { log } from './logger.js';
 import KrakenFuturesApi from './krakenApi.js';
@@ -28,7 +28,7 @@ export async function runOnce() {
 
     const ctx = await loadContext();
 
-    // Set initial fetch timestamp on the very first run
+    // The key fix: set the initial fetch timestamp on the very first run
     if (!ctx.lastPositionEventsFetch) {
       ctx.lastPositionEventsFetch = Date.now();
       log.info('🤖 Initializing bot for the first time. Starting event tracking from now.');
@@ -45,24 +45,22 @@ export async function runOnce() {
       callsLeft
     });
     
-    // Log the AI's action to the long-term journal BEFORE interpreting it.
-    const actionEntry = {
-      timestamp: new Date().toISOString(),
+    // The fix: Log the AI's action to the long-term journal BEFORE interpreting it.
+    // This ensures the timestamp and market data are accurate for the decision moment.
+    await saveActionEntry({
       reason: plan.reason,
       action: plan.action,
       marketData: {
         markPrice: snap.markPrice,
         position: snap.position,
         balance: snap.balance,
-      },
-      type: 'bot_action'
-    };
-    ctx.journal = (ctx.journal || []).concat(actionEntry);
+      }
+    });
 
-    // Execute the plan. This might involve a wait time.
+    // Now, execute the plan. This might involve a wait time.
     await interpret(plan.action);
 
-    // Process and log new P&L events.
+    // Now, process any new events and save them to the journal
     if (snap.events && snap.events.length > 0) {
       snap.events.forEach(apiEvent => {
         if (apiEvent.event && apiEvent.event.PositionUpdate) {
@@ -79,9 +77,9 @@ export async function runOnce() {
               type: 'realized_pnl',
             };
             
-            // Check for duplicates before saving to the in-memory journal.
+            // Check for duplicates before saving
             if (!ctx.journal.find(j => j.closedTime === journalEntry.closedTime && j.pair === journalEntry.pair)) {
-              ctx.journal.push(journalEntry);
+              saveJournalEntry(journalEntry); // Use the new function to save the entry
               log.info('📈 Realized P&L added to journal:', journalEntry);
             }
           }
@@ -90,15 +88,13 @@ export async function runOnce() {
       ctx.lastPositionEventsFetch = Date.now();
     }
     
-    // Update the nextCtx property on the in-memory ctx object.
-    ctx.nextCtx = plan.nextCtx;
+    // Save the AI's state for the next invocation
+    await saveContext(plan.nextCtx);
 
-    // Save the entire updated context to Redis in one go.
-    await saveState(ctx);
     await kv.set(keyToday, callsSoFar + 1);
 
     log.info('✅ Cycle complete. Plan:', plan);
-    log.info('📖 Journal Contents:', JSON.stringify(ctx.journal, null, 2));
+    log.info('📖 Journal Contents:', JSON.stringify((await loadContext()).journal, null, 2));
 
     return plan;
   } catch (e) {
