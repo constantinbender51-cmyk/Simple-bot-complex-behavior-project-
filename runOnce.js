@@ -39,6 +39,9 @@ export async function runOnce() {
       ctx.journal = [];
     }
 
+    // Add a log to see the timestamp we're filtering against
+    log.info(`DEBUG: lastPositionEventsFetch (ms): ${ctx.lastPositionEventsFetch}`);
+    log.info(`DEBUG: lastPositionEventsFetch (date): ${new Date(ctx.lastPositionEventsFetch).toISOString()}`);
     // --------------------------------
 
     const snap = await getMarketSnapshot(ctx.lastPositionEventsFetch);
@@ -72,14 +75,22 @@ export async function runOnce() {
 
     // Process any new events and add them to the local journal
     if (snap.events && snap.events.length > 0) {
+      // Add a log to see the number of events received
+      log.info(`DEBUG: Received ${snap.events.length} events from API.`);
+
       // Filter events to only process those that are truly new
       const newEvents = snap.events.filter(apiEvent => {
+        // Log the raw and converted timestamp for each event
+        log.info(`DEBUG:   Event timestamp raw: ${apiEvent.timestamp}`);
+        log.info(`DEBUG:   Event timestamp converted (ms): ${apiEvent.timestamp * 1000}`);
+        
         // Convert Kraken's timestamp (in seconds) to milliseconds for comparison
         const eventTimeMs = apiEvent.timestamp * 1000;
         return eventTimeMs > ctx.lastPositionEventsFetch;
       });
       
       if (newEvents.length > 0) {
+        log.info(`DEBUG: Found ${newEvents.length} new events after filtering.`);
         newEvents.forEach(apiEvent => {
           if (apiEvent.event && apiEvent.event.PositionUpdate) {
             const event = apiEvent.event.PositionUpdate;
