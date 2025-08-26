@@ -25,7 +25,7 @@ export async function getMarketSnapshot(lastPositionEventsFetch) {
       api.getTickers(),
       api.getOpenPositions(),
       api.getAccounts(),
-      api.getPositionEvents({ since: sinceInSeconds })
+      {}//api.getPositionEvents({ since: sinceInSeconds })
     ]);
 
     const ticker = tickers.tickers.find(t => t.symbol === PAIR);
