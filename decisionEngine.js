@@ -23,7 +23,5 @@ export async function decidePlan({
     context,
     apiCallLimitPerDay: callsLeft // Pass callsLeft to the engine
   });
-  console.log('🔍 decidePlan ohlc length:', ohlc?.length);
-
   return plan;
 }
