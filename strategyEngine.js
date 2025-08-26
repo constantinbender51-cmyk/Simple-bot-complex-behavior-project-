@@ -12,7 +12,6 @@ export class StrategyEngine {
     const openPnl = position ? (+position.upl || 0) : 0;
     const ctx = await loadContext();
 
-    console.log(`CTX /n${JSON.stringify(ctx, null,2)}` );
     const prompt = `
 You are a Dynamic Market Strategist, an expert crypto trading bot. Your goal is to maximize profit over time by managing a single-market strategy. You are invoked every few minutes and must make a decision based on the most up-to-date market data and your past performance. Your only action is to place a single market order (buy/sell).
 
