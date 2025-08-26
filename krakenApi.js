@@ -100,7 +100,7 @@ export class KrakenFuturesApi {
   async getPositionEvents(p) {
     log.info('DEBUG: Calling getPositionEvents with params:', p);
     const result = await this._request('GET', '/api/history/v3/positions', p);
-    log.info('DEBUG: getPositionEvents result:', result);
+    log.info('DEBUG: getPositionEvents result:', JSON.stringify(result, null,2));
     return result;
   }
 }
