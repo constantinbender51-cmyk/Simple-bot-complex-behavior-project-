@@ -3,10 +3,9 @@ import { getMarketSnapshot } from './marketProxy.js';
 import { decidePlan } from './decisionEngine.js';
 import { interpret } from './interpreter.js';
 import { saveContext, loadContext } from './context.js';
-import KrakenFuturesApi from './krakenApi.js';
 import { kv } from './redis.js';
-import { sendMarketOrder } from './execution.js';
 import { log } from './logger.js';
+import KrakenFuturesApi from './krakenApi.js';
 
 const PAIR = 'PF_XBTUSD';
 
@@ -30,8 +29,7 @@ export async function runOnce() {
     const ctx = await loadContext();
     const lastFillTime = (Date.now() - 1000 * 60 * 60 * 24).toString();
 
-    const snap = await getMarketSnapshot(lastFillTime);//ctx.lastPositionEventsFetch
-    console.log(`Snap ${JSON.stringify(snap, null, 2)}`);
+    const snap = await getMarketSnapshot(lastFillTime, ctx.lastPositionEventsFetch);
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
 
     const plan = await decidePlan({
@@ -45,23 +43,29 @@ export async function runOnce() {
 
     await interpret(plan.action);
 
-    if (snap.events && snap.events.length > 0) {
+    // FIX: Access the nested 'elements' array
+    if (snap.events && snap.events.elements && snap.events.elements.length > 0) {
       ctx.journal = ctx.journal || [];
-      snap.events.forEach(event => {
-        if (event.updateReason === 'trade' && event.positionChange === 'close') {
-          const journalEntry = {
-            closedTime: new Date(event.timestamp).toISOString(),
-            pair: event.tradeable,
-            pnl: +event.realizedPnL,
-            side: event.oldPosition === 'long' ? 'sell' : 'buy',
-            size: +event.positionChange,
-            entryPrice: +event.oldAverageEntryPrice,
-            exitPrice: +event.executionPrice,
-            type: 'realized_pnl',
-          };
-          if (!ctx.journal.find(j => j.closedTime === journalEntry.closedTime && j.pair === journalEntry.pair)) {
-            ctx.journal.push(journalEntry);
-            log.info('📈 Realized P&L added to journal:', journalEntry);
+      // FIX: Iterate over 'elements' and access the nested 'event' object
+      snap.events.elements.forEach(apiEvent => {
+        // FIX: Check for the nested PositionUpdate object
+        if (apiEvent.event && apiEvent.event.PositionUpdate) {
+          const event = apiEvent.event.PositionUpdate;
+          if (event.updateReason === 'trade' && event.positionChange === 'close') {
+            const journalEntry = {
+              closedTime: new Date(apiEvent.timestamp).toISOString(),
+              pair: event.tradeable,
+              pnl: +event.realizedPnL,
+              side: event.oldPosition === 'long' ? 'sell' : 'buy',
+              size: +event.positionChange,
+              entryPrice: +event.oldAverageEntryPrice,
+              exitPrice: +event.executionPrice,
+              type: 'realized_pnl',
+            };
+            if (!ctx.journal.find(j => j.closedTime === journalEntry.closedTime && j.pair === journalEntry.pair)) {
+              ctx.journal.push(journalEntry);
+              log.info('📈 Realized P&L added to journal:', journalEntry);
+            }
           }
         }
       });
