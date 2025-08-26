@@ -78,7 +78,7 @@ export async function runOnce() {
       nextCtx: plan.nextCtx,
       reason: plan.reason,
       action: plan.action,
-      marketData: snap.markPrice
+      marketData: snap
     });
 
     await kv.set(keyToday, callsSoFar + 1);
