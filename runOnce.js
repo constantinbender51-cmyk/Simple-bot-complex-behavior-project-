@@ -26,6 +26,7 @@ export async function runOnce() {
     const limitPerDay = 500;
     const callsLeft = limitPerDay - callsSoFar;
 
+    // Load the existing context, which might be an empty object on the first run
     const ctx = await loadContext();
     const lastFillTime = (Date.now() - 1000 * 60 * 60 * 24).toString();
 
@@ -43,9 +44,12 @@ export async function runOnce() {
 
     await interpret(plan.action);
 
+    // FIX: Ensure the journal is an array from the start
+    // The journal is now a property of the main context object.
+    const journal = ctx.journal || [];
+
     // FIX: Access the nested 'elements' array
     if (snap.events && snap.events.elements && snap.events.elements.length > 0) {
-      ctx.journal = ctx.journal || [];
       // FIX: Iterate over 'elements' and access the nested 'event' object
       snap.events.elements.forEach(apiEvent => {
         // FIX: Check for the nested PositionUpdate object
@@ -62,8 +66,9 @@ export async function runOnce() {
               exitPrice: +event.executionPrice,
               type: 'realized_pnl',
             };
-            if (!ctx.journal.find(j => j.closedTime === journalEntry.closedTime && j.pair === journalEntry.pair)) {
-              ctx.journal.push(journalEntry);
+            // Only add a new entry if it doesn't already exist
+            if (!journal.find(j => j.closedTime === journalEntry.closedTime && j.pair === journalEntry.pair)) {
+              journal.push(journalEntry);
               log.info('📈 Realized P&L added to journal:', journalEntry);
             }
           }
@@ -72,14 +77,21 @@ export async function runOnce() {
       ctx.lastPositionEventsFetch = Date.now();
     }
     
-    log.info('📖 Journal Contents:', JSON.stringify(ctx.journal, null, 2));
+    // Log the current journal contents for debugging
+    log.info('📖 Journal Contents:', JSON.stringify(journal, null, 2));
 
-    await saveContext({
-      nextCtx: plan.nextCtx,
+    // FIX: Construct the new context object with all the updated information,
+    // including the journal, and pass it to a simplified saveContext function.
+    const newContext = {
+      ...ctx, // Start with the old context
+      nextCtx: plan.nextCtx, // Add the AI's plan context
       reason: plan.reason,
       action: plan.action,
-      marketData: snap
-    });
+      marketData: snap,
+      journal: journal.slice(-10) // Keep the last 10 entries
+    };
+
+    await saveContext(newContext);
 
     await kv.set(keyToday, callsSoFar + 1);
     log.info('✅ Cycle complete. Plan:', plan);
