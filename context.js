@@ -12,10 +12,9 @@ export async function loadContext() {
 
 export async function saveContext(data) {
   try {
-    const currentContext = await loadContext();
-    // Only update the nextCtx part of the context
-    const newContext = { ...currentContext, nextCtx: data };
-    await kv.set(CONTEXT_KEY, JSON.stringify(newContext));
+    // This is the correct, universal save function.
+    // It saves the entire 'data' object directly.
+    await kv.set(CONTEXT_KEY, JSON.stringify(data));
   } catch (e) {
     console.error('saveContext failed:', e);
   }
