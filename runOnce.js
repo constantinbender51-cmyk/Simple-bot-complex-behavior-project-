@@ -64,12 +64,12 @@ export async function runOnce() {
     ctx.journal.push(actionEntry);
 
     await interpret(plan.action);
+    let pnlEventsAdded = 0;
 
     if (snap.events && snap.events.length > 0) {
       const newEvents = snap.events.filter(apiEvent => apiEvent.timestamp > ctx.lastPositionEventsFetch);
       
       if (newEvents.length > 0) {
-        log.info(`✅ Found ${newEvents.length} new events and added to journal.`);
         newEvents.forEach(apiEvent => {
           if (apiEvent.event && apiEvent.event.PositionUpdate) {
             const event = apiEvent.event.PositionUpdate;
@@ -86,12 +86,18 @@ export async function runOnce() {
               };
               
               ctx.journal.push(journalEntry);
+              pnlEventsAdded++;
             }
           }
         });
 
         const latestEvent = newEvents[newEvents.length - 1];
-        ctx.lastPositionEventsFetch = latestEvent.timestamp;
+
+        if (typeof latestEvent.timestamp === 'number' && latestEvent.timestamp > 0) {
+            ctx.lastPositionEventsFetch = latestEvent.timestamp;
+        } else {
+            log.warn('⚠️ Invalid timestamp received from API, skipping update to lastPositionEventsFetch.');
+        }
       }
     }
     
@@ -103,7 +109,8 @@ export async function runOnce() {
     await kv.set(keyToday, callsSoFar + 1);
 
     log.info('✅ Cycle complete. Plan:', plan);
-    log.info('📖 Journal Contents:', JSON.stringify(ctx.journal, null, 2));
+    log.info(`📖 Journal: Current length is ${ctx.journal.length}.`);
+    log.info(`📈 P&L Events: Added ${pnlEventsAdded} new events.`);
 
     return plan;
   } catch (e) {
