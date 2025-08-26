@@ -12,13 +12,9 @@ export async function loadContext() {
 
 export async function saveContext(data) {
   try {
-    // Load the current context to ensure we don't overwrite other data
     const currentContext = await loadContext();
-    
-    // Merge the new data directly into the main context object,
-    // overwriting keys as needed. This ensures all state is saved at the top level.
-    const newContext = { ...currentContext, ...data };
-
+    // Only update the nextCtx part of the context
+    const newContext = { ...currentContext, nextCtx: data };
     await kv.set(CONTEXT_KEY, JSON.stringify(newContext));
   } catch (e) {
     console.error('saveContext failed:', e);
