@@ -38,6 +38,11 @@ export async function runOnce() {
       ctx.journal = [];
     }
 
+    // --- NEW LOGGING ADDED HERE ---
+    log.info(`DEBUG: lastPositionEventsFetch (ms): ${ctx.lastPositionEventsFetch}`);
+    log.info(`DEBUG: lastPositionEventsFetch (date): ${new Date(ctx.lastPositionEventsFetch).toISOString()}`);
+    // ----------------------------
+
     const snap = await getMarketSnapshot(ctx.lastPositionEventsFetch);
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
 
