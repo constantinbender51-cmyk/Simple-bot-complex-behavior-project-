@@ -28,21 +28,18 @@ export async function runOnce() {
 
     // --- LOAD ONCE, AT THE START ---
     const ctx = await loadContext();
+
+    // Check for the AI's plan and merge it into the main context.
+    if (ctx.nextCtx) {
+      Object.assign(ctx, ctx.nextCtx);
+    }
     
     log.info('📊 Keys in context loaded from Redis:', Object.keys(ctx));
 
-    // --- NEW LOGIC TO READ FROM NEXTCTX ---
-    // Check for the nested timestamp before initializing.
-    const lastFetchFromNextCtx = ctx.nextCtx ? ctx.nextCtx.lastPositionEventsFetch : null;
-
-    if (!ctx.lastPositionEventsFetch && !lastFetchFromNextCtx) {
+    if (!ctx.lastPositionEventsFetch) {
       ctx.lastPositionEventsFetch = Date.now();
       log.info('🤖 Initializing bot for the first time. Starting event tracking from now.');
-    } else if (lastFetchFromNextCtx) {
-      // If we found it in nextCtx, use that value.
-      ctx.lastPositionEventsFetch = lastFetchFromNextCtx;
     }
-    // ----------------------------
 
     if (!ctx.journal) {
       ctx.journal = [];
@@ -113,22 +110,18 @@ export async function runOnce() {
     }
     
     // --- SAVE ONCE, AT THE END ---
-    // Merge the AI's plan and the bot's persistent state into a single object for saving.
-    const finalCtx = {
-      ...plan.nextCtx,
-      journal: ctx.journal,
-      lastPositionEventsFetch: ctx.lastPositionEventsFetch
-    };
+    // Merge the AI's plan directly into the main context object.
+    Object.assign(ctx, plan.nextCtx);
 
-    log.info(`💾 LastPositionEventsFetch before save: ${finalCtx.lastPositionEventsFetch}`);
+    log.info(`💾 LastPositionEventsFetch before save: ${ctx.lastPositionEventsFetch}`);
 
-    await saveContext(finalCtx);
+    await saveContext(ctx);
     log.info('💾 Save context operation requested.');
 
     await kv.set(keyToday, callsSoFar + 1);
 
     log.info('✅ Cycle complete. Plan:', plan);
-    log.info(`📖 Journal: Current length is ${finalCtx.journal.length}.`);
+    log.info(`📖 Journal: Current length is ${ctx.journal.length}.`);
     log.info(`📈 P&L Events: Added ${pnlEventsAdded} new events.`);
 
     return plan;
