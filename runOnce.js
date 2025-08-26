@@ -29,7 +29,6 @@ export async function runOnce() {
     // --- LOAD ONCE, AT THE START ---
     const ctx = await loadContext();
     
-    // --- NEW LOGGING ADDED HERE ---
     log.info('📊 Keys in context loaded from Redis:', Object.keys(ctx));
 
     if (!ctx.lastPositionEventsFetch) {
@@ -107,6 +106,10 @@ export async function runOnce() {
     
     // --- SAVE ONCE, AT THE END ---
     ctx.nextCtx = plan.nextCtx;
+
+    // --- NEW LOGGING ADDED HERE ---
+    log.info(`💾 LastPositionEventsFetch before save: ${ctx.lastPositionEventsFetch}`);
+
     await saveContext(ctx);
     log.info('💾 Save context operation requested.');
 
