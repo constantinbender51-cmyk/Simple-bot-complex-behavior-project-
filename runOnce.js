@@ -28,9 +28,8 @@ export async function runOnce() {
 
     // --- LOAD ONCE, AT THE START ---
     const ctx = await loadContext();
-
-    // Log the contents of the loaded context
-    log.info('📊 Context loaded from Redis:', JSON.stringify(ctx, null, 2));
+    
+    log.info('📊 Keys in context loaded from Redis:', Object.keys(ctx));
 
     if (!ctx.lastPositionEventsFetch) {
       ctx.lastPositionEventsFetch = Date.now();
@@ -105,14 +104,23 @@ export async function runOnce() {
     }
     
     // --- SAVE ONCE, AT THE END ---
-    ctx.nextCtx = plan.nextCtx;
-    await saveContext(ctx);
+    // Create the final context object with top-level keys
+    // for journal, lastPositionEventsFetch, and nextCtx.
+    const finalCtx = {
+        journal: ctx.journal,
+        lastPositionEventsFetch: ctx.lastPositionEventsFetch,
+        nextCtx: plan.nextCtx
+    };
+    
+    log.info(`💾 LastPositionEventsFetch before save: ${finalCtx.lastPositionEventsFetch}`);
+
+    await saveContext(finalCtx);
     log.info('💾 Save context operation requested.');
 
     await kv.set(keyToday, callsSoFar + 1);
 
     log.info('✅ Cycle complete. Plan:', plan);
-    log.info(`📖 Journal: Current length is ${ctx.journal.length}.`);
+    log.info(`📖 Journal: Current length is ${finalCtx.journal.length}.`);
     log.info(`📈 P&L Events: Added ${pnlEventsAdded} new events.`);
 
     return plan;
