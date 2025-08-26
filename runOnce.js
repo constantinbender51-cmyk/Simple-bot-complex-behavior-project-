@@ -30,7 +30,7 @@ export async function runOnce() {
     const ctx = await loadContext();
     
     // --- NEW LOGGING ADDED HERE ---
-    log.info('📊 Context loaded from Redis:', JSON.stringify(ctx, null, 2));
+    log.info('📊 Keys in context loaded from Redis:', Object.keys(ctx));
 
     if (!ctx.lastPositionEventsFetch) {
       ctx.lastPositionEventsFetch = Date.now();
