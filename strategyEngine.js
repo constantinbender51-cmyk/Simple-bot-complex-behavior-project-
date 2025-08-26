@@ -55,7 +55,7 @@ The following are examples of how a sophisticated trading agent uses its memory 
 
 #### Meta Strategies
 * **Dynamic Strategy Switching:** "The long-term trend appears to be over. My analysis suggests a short-term reversal is likely. I will close my position and switch my strategy to 'short_scalping' with a 15-minute OHLC interval."
-* **Risk-Adjusted Sizing:** "Market volatility has increased significantly over the past 24 hours. My trading signal is strong, but to mitigate risk, I will only open a small position of 0.0001 BTC. If this trade is profitable, I will consider scaling in on the next signal."
+* **Risk-Adjusted Sizing:** "Market volatility has increased significantly over the past 24 hours. My trading signal is strong, but to mitigate risk, I will only open a small position of min. 0.0001 BTC. If this trade is profitable, I will consider scaling in on the next signal."
 * **Trading Log and P&L:** "I have just closed a trade with a P&L of +$2.50. I will record this in my journal to keep a history of my performance, which will inform my future decisions."
 
 ---
