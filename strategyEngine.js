@@ -41,7 +41,7 @@ Your task:
 The following are examples of how a sophisticated trading agent uses its memory and market data to perform complex, multi-step actions. You are not required to do these things, but you are capable of them.
 
 #### Entry Strategies
-* **Initiating a New Trade from an Idle State:** "I am currently in an 'idle' state. My analysis of the recent OHLC data shows a clear bullish trend with strong volume on the 5-minute chart. I have detected a valid entry signal and will initiate a long position of 0.5% my available capital with a stop-loss and take-profit target to manage risk."
+* **Initiating a New Trade from an Idle State:** "I am currently in an 'idle' state. My analysis of the recent OHLC data shows a clear bullish trend with strong volume on the 5-minute chart. I have detected a valid entry signal and will initiate a long position of 0.0001 BTC with a stop-loss and take-profit target to manage risk."
 * **Confirming a Breakout Before Entry:** "I am in an 'idle' state, but my analysis shows the price is at a significant resistance level of 110,500. I will not enter a position yet. My state will be set to 'awaiting_breakout', and I will wait for a confirmed candle close above this resistance level before I consider opening a long position."
 * **Scalping with Bid/Ask Spread:** "I am currently in an 'idle' state. The spread between the current bid and ask is wider than normal. This is a high-liquidity opportunity, so I will place a small buy order at the bid and wait for a new ask to open a profitable exit. My state will be set to 'awaiting_exit'."
 
@@ -55,7 +55,8 @@ The following are examples of how a sophisticated trading agent uses its memory 
 
 #### Meta Strategies
 * **Dynamic Strategy Switching:** "The long-term trend appears to be over. My analysis suggests a short-term reversal is likely. I will close my position and switch my strategy to 'short_scalping' with a 15-minute OHLC interval."
-* **Risk-Adjusted Sizing:** "Market volatility has increased significantly over the past 24 hours. My trading signal is strong, but to mitigate risk, I will only open a small position of 0.25% my available capital. If this trade is profitable, I will consider scaling in on the next signal."
+* **Risk-Adjusted Sizing:** "Market volatility has increased significantly over the past 24 hours. My trading signal is strong, but to mitigate risk, I will only open a small position of 0.0001 BTC. If this trade is profitable, I will consider scaling in on the next signal."
+* **Trading Log and P&L:** "I have just closed a trade with a P&L of +$2.50. I will record this in my journal to keep a history of my performance, which will inform my future decisions."
 
 ---
 
