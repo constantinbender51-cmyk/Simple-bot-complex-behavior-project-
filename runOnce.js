@@ -29,12 +29,8 @@ export async function runOnce() {
     // --- LOAD ONCE, AT THE START ---
     const ctx = await loadContext();
 
-    // Check for the AI's plan and merge it into the main context.
-    if (ctx.nextCtx) {
-      Object.assign(ctx, ctx.nextCtx);
-    }
-    
-    log.info('📊 Keys in context loaded from Redis:', Object.keys(ctx));
+    // Log the contents of the loaded context
+    log.info('📊 Context loaded from Redis:', JSON.stringify(ctx, null, 2));
 
     if (!ctx.lastPositionEventsFetch) {
       ctx.lastPositionEventsFetch = Date.now();
@@ -44,7 +40,6 @@ export async function runOnce() {
     if (!ctx.journal) {
       ctx.journal = [];
     }
-    // ----------------------------
 
     const snap = await getMarketSnapshot(ctx.lastPositionEventsFetch);
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
@@ -110,11 +105,7 @@ export async function runOnce() {
     }
     
     // --- SAVE ONCE, AT THE END ---
-    // Merge the AI's plan directly into the main context object.
-    Object.assign(ctx, plan.nextCtx);
-
-    log.info(`💾 LastPositionEventsFetch before save: ${ctx.lastPositionEventsFetch}`);
-
+    ctx.nextCtx = plan.nextCtx;
     await saveContext(ctx);
     log.info('💾 Save context operation requested.');
 
