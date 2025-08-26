@@ -39,8 +39,7 @@ export async function runOnce() {
       ohlc,
       callsLeft
     });
-    console.log('📋 PLAN:', plan);
-
+    
     await interpret(plan.action);
 
     // FIX: Access the nested 'elements' array
@@ -72,17 +71,16 @@ export async function runOnce() {
       ctx.lastPositionEventsFetch = Date.now();
     }
     
-    log.info('📖 Journal Contents:', JSON.stringify(ctx.journal, null, 2));
-
     await saveContext({
       nextCtx: plan.nextCtx,
       reason: plan.reason,
       action: plan.action,
-      marketData: snap
+      marketData: snap.markPrice
     });
 
     await kv.set(keyToday, callsSoFar + 1);
     log.info('✅ Cycle complete. Plan:', plan);
+    log.info('📖 Journal Contents:', JSON.stringify(ctx.journal, null, 2));
 
     return plan;
   } catch (e) {
