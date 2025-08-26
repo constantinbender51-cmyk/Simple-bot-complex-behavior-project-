@@ -79,7 +79,6 @@ The following are examples of how a sophisticated trading agent uses its memory 
 \`\`\`
 `;
     const raw = (await model.generateContent(prompt)).response.text();
-    log.info('🧠 AI RAW:', raw);
     return JSON.parse(raw.match(/```json\s*(\{[\s\S]*?\})\s*```/)?.[1] || '{}');
   }
 }
