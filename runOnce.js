@@ -5,19 +5,20 @@ import { interpret }         from './interpreter.js';
 import { saveContext, loadContext } from './context.js';
 import KrakenFuturesApi      from './krakenApi.js';
 import { kv }                from './redis.js';
-import { getPositionEvents } from './krakenApi.js';
 import { sendMarketOrder } from './execution.js';
 import { log } from './logger.js';
 
 const PAIR = 'PF_XBTUSD';
 
+// --- Correct way to use KrakenFuturesApi as a class ---
+const krakenApi = new KrakenFuturesApi(
+  process.env.KRAKEN_API_KEY,
+  process.env.KRAKEN_SECRET_KEY
+);
+
 async function fetchOHLC(intervalMinutes, count) {
-  const api = new KrakenFuturesApi(
-    process.env.KRAKEN_API_KEY,
-    process.env.KRAKEN_SECRET_KEY
-  );
   const since = Math.floor(Date.now() / 1000 - intervalMinutes * 60 * count);
-  return api.fetchKrakenData({ pair: 'XBTUSD', interval: intervalMinutes, since });
+  return krakenApi.fetchKrakenData({ pair: 'XBTUSD', interval: intervalMinutes, since });
 }
 
 export async function runOnce() {
@@ -45,7 +46,8 @@ export async function runOnce() {
     
     // ------------------ P&L LOGGING LOGIC ------------------
     const lastFetch = ctx.lastPositionEventsFetch || 0;
-    const events = await getPositionEvents({ since: lastFetch });
+    // Correctly call the method on the krakenApi instance
+    const events = await krakenApi.getPositionEvents({ since: lastFetch });
     
     if (events && events.length > 0) {
         ctx.journal = ctx.journal || [];
