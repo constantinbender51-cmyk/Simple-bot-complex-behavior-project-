@@ -9,9 +9,9 @@ const api = new KrakenFuturesApi(
   process.env.KRAKEN_SECRET_KEY
 );
 
-export async function getMarketSnapshot( lastFetchTime) {
+export async function getMarketSnapshot(lastFetchTime) {
   try {
-    const [tickers, positions, accounts, fills, events] = await Promise.all([
+    const [tickers, positions, accounts, events] = await Promise.all([
       api.getTickers(),
       api.getOpenPositions(),
       api.getAccounts(),
