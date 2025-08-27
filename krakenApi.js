@@ -69,15 +69,9 @@ export class KrakenFuturesApi {
   getRecentOrders = p => this._request('GET', '/derivatives/api/v3/recentorders', p);
   
   // LOGGING: Log both params and the result for getFills
-  // krakenApi.js - Update the getFills method
-  async getFills(lastFillTime = null) {
-    const params = {};
-    if (lastFillTime) {
-      params.lastFillTime = lastFillTime;
-    }
-  
-    log.info('DEBUG: Calling getFills with params:', params);
-    const result = await this._request('GET', '/derivatives/api/v3/fills', params);
+  async getFills(p) {
+    log.info('DEBUG: Calling getFills with params:', p);
+    const result = await this._request('GET', '/derivatives/api/v3/fills', p);
     log.info('DEBUG: getFills result:', result);
     return result;
   }
