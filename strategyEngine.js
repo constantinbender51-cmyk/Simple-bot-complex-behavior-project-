@@ -1,5 +1,5 @@
 // strategyEngine.js
-import { GoogleGenerativeAI } from '@google-genai/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { loadContext } from './context.js';
 import { log } from './logger.js';
 
