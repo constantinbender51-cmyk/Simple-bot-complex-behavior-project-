@@ -23,7 +23,7 @@ export async function decidePlan({
     ohlc,
     intervalMinutes,
     context,
-    apiCallLimitPerDay: callsLeft // Pass callsLeft to the engine
+    callsLeft // Pass callsLeft to the engine
   });
   return plan;
 }
