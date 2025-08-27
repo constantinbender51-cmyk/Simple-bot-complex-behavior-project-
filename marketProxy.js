@@ -16,15 +16,14 @@ const api = new KrakenFuturesApi(
  */
 export async function getMarketSnapshot(lastPositionEventsFetch) {
   try {
-    // The Kraken API expects a `lastFillTime` parameter in SECONDS.
-    // We need to convert the millisecond timestamp from our context.
-    const lastFillTimeInSeconds = lastPositionEventsFetch ? Math.floor(lastPositionEventsFetch / 1000) : undefined;
-
+    // We are temporarily removing the lastFillTime parameter to bypass the API error.
+    // This will fetch all fills on every run, which is inefficient, but should
+    // allow the program to proceed and calculate P&L correctly.
     const [tickers, positions, accounts, fills] = await Promise.all([
       api.getTickers(),
       api.getOpenPositions(),
       api.getAccounts(),
-      api.getFills({ lastFillTime: lastFillTimeInSeconds })
+      api.getFills()
     ]);
 
     const ticker = tickers.tickers.find(t => t.symbol === PAIR);
