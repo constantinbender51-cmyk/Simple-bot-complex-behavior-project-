@@ -11,27 +11,18 @@ const api = new KrakenFuturesApi(
 
 /**
  * Fetches a snapshot of the current market data and new position events.
- * The 'since' parameter is converted to a Unix timestamp (seconds)
- * to ensure compatibility with the Kraken API.
  * @param {number} lastPositionEventsFetch - The timestamp in milliseconds of the last event fetch.
- * @returns {object} A market data snapshot.
+ * @returns {object} A market data snapshot including new fills.
  */
-// marketProxy.js
-// ... (existing code)
-
-/**
- * Fetches a snapshot of the current market data and new fills.
- * The 'lastFillTime' parameter is a UTC timestamp in milliseconds.
- * @param {number} lastFillTime - The UTC timestamp in milliseconds of the last fill fetch.
- * @returns {object} A market data snapshot.
- */
-export async function getMarketSnapshot(lastFillTime) {
+export async function getMarketSnapshot(lastPositionEventsFetch) {
   try {
+    // The Kraken API expects a `lastFillTime` parameter, which we can provide
+    // directly from our `lastPositionEventsFetch` context value.
     const [tickers, positions, accounts, fills] = await Promise.all([
       api.getTickers(),
       api.getOpenPositions(),
       api.getAccounts(),
-      api.getFills({ lastFillTime })
+      api.getFills({ lastFillTime: lastPositionEventsFetch })
     ]);
 
     const ticker = tickers.tickers.find(t => t.symbol === PAIR);
@@ -44,7 +35,8 @@ export async function getMarketSnapshot(lastFillTime) {
       markPrice: markPx,
       position,
       balance,
-      events: fills.fills || []
+      // Use fills.fills, with a fallback to an empty array
+      fills: fills.fills || []
     };
   } catch (err) {
     log.error('marketProxy failed:', err);
