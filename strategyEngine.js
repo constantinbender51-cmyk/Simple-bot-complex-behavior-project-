@@ -25,25 +25,10 @@ export class StrategyEngine {
     log.info('Account Balance:', balance);
     log.info('Remaining API Calls:', callsLeft);
 
-    // Create a truncated version of the OHLC data for the console log only.
-    // The original, full OHLC array will be sent to the AI.
-    const loggableOhlc = ohlc.length > 5 ? ohlc.slice(-5) : ohlc;
-    log.info('OHLC data length:', ohlc.length, '-> Log truncated to:', loggableOhlc.length);
-    log.info('Logged OHLC:', loggableOhlc);
-
     const posSize = position ? (+position.size) * (position.side === 'long' ? 1 : -1) : 0;
     const openPnl = position ? (+position.upl || 0) : 0;
     const ctx = await loadContext();
     
-    // Log the full context objects for debugging. They will no longer be truncated.
-    if (ctx.journal) {
-      log.info('Logged Journal:', JSON.stringify(ctx.journal));
-    }
-    
-    if (ctx.nextCtx) {
-      log.info('Logged Next Context:', JSON.stringify(ctx.nextCtx));
-    }
-
     // The core prompt has been updated to use percentages for position sizing,
     // making the strategy scalable based on the account's margin.
     const prompt = `
@@ -121,9 +106,6 @@ You are not limited to the examples below. You have the freedom to invent and ap
 }
 \`\`\`
 `;
-    // Log the prompt being sent to the AI. Truncate long strings for readability.
-    log.info('Sending prompt to AI:', prompt.substring(0, 500) + '...');
-
     const raw = (await model.generateContent(prompt)).response.text();
     return JSON.parse(raw.match(/```json\s*(\{[\s\S]*?\})\s*```/)?.[1] || '{}');
   }
