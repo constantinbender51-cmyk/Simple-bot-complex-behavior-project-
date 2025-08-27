@@ -26,68 +26,105 @@ export async function runOnce() {
     const limitPerDay = 500;
     const callsLeft = limitPerDay - callsSoFar;
 
-    if (callsLeft <= 0) {
-      log.warn('Daily API call limit reached');
-      return;
-    }
-
-    // Load last fetch timestamp from context
+    // --- LOAD ONCE, AT THE START ---
     const ctx = await loadContext();
-    const lastFetchTimestamp = ctx.lastFetchTimestamp || 0;
-
-    // Get market snapshot with PnL data
-    const snapshot = await getMarketSnapshot(lastFetchTimestamp);
     
-    // Fetch OHLC data using the interval from context or default
-    const ohlcInterval = ctx.nextCtx?.ohlcInterval || 60;
-    const ohlc = await fetchOHLC(ohlcInterval, 400);
+    log.info('📊 Keys in context loaded from Redis:', Object.keys(ctx));
 
-    // runOnce.js - Update the strategyData preparation
-const strategyData = {
-  markPrice: snapshot.markPrice,
-  position: snapshot.position,
-  balance: snapshot.balance,
-  pnl: snapshot.pnl, // Include PnL data
-  ohlc,
-  callsLeft
-};
-    // Generate trading plan
-    const plan = await decidePlan(strategyData);
-    log.info('Generated plan:', plan);
-
-    // Interpret and execute the plan
-    if (plan.action && (plan.action.side || plan.action.size > 0)) {
-      await interpret(plan, krakenApi, PAIR);
+    if (!ctx.lastPositionEventsFetch) {
+      ctx.lastPositionEventsFetch = Date.now();
+      log.info('🤖 Initializing bot for the first time. Starting event tracking from now.');
     }
 
-    // Save updated context with current timestamp
-    await saveContext({
-      ...ctx,
-      lastFetchTimestamp: snapshot.timestamp,
-      // Update the journal entry to include PnL data
-journal: [...(ctx.journal || []), {
-  timestamp: new Date().toISOString(),
-  decision: plan.reason,
-  pnl: {
-    realized: snapshot.pnl.realizedPnL,
-    net: snapshot.pnl.netPnL,
-    fees: snapshot.pnl.totalFees,
-    trades: snapshot.pnl.tradeCount
-  },
-  marketData: {
-    markPrice: snapshot.markPrice,
-    balance: snapshot.balance,
-    positionSize: snapshot.position ? (+snapshot.position.size) * (snapshot.position.side === 'long' ? 1 : -1) : 0
-  }
-}],
-      nextCtx: plan.nextCtx
-    });
+    if (!ctx.journal) {
+      ctx.journal = [];
+    }
 
-    // Update API call counter
+    const snap = await getMarketSnapshot(ctx.lastPositionEventsFetch);
+    const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
+
+    const plan = await decidePlan({
+      markPrice: snap.markPrice,
+      position: snap.position,
+      balance: snap.balance,
+      ohlc,
+      callsLeft
+    });
+    
+    // --- UPDATE CONTEXT IN-MEMORY ---
+    const actionEntry = {
+      timestamp: new Date().toISOString(),
+      reason: plan.reason,
+      action: plan.action,
+      marketData: {
+        markPrice: snap.markPrice,
+        position: snap.position,
+        balance: snap.balance,
+      },
+      type: 'bot_action'
+    };
+    ctx.journal.push(actionEntry);
+
+    await interpret(plan.action);
+    let pnlEventsAdded = 0;
+
+    if (snap.events && snap.events.length > 0) {
+      const newEvents = snap.events.filter(apiEvent => apiEvent.timestamp > ctx.lastPositionEventsFetch);
+      
+      if (newEvents.length > 0) {
+        newEvents.forEach(apiEvent => {
+          if (apiEvent.event && apiEvent.event.PositionUpdate) {
+            const event = apiEvent.event.PositionUpdate;
+            if (event.updateReason === 'trade' && event.positionChange === 'close') {
+              const journalEntry = {
+                closedTime: new Date(apiEvent.timestamp).toISOString(),
+                pair: event.tradeable,
+                pnl: +event.realizedPnL,
+                side: event.oldPosition === 'long' ? 'sell' : 'buy',
+                size: +event.positionChange, 
+                entryPrice: +event.oldAverageEntryPrice,
+                exitPrice: +event.executionPrice,
+                type: 'realized_pnl',
+              };
+              
+              ctx.journal.push(journalEntry);
+              pnlEventsAdded++;
+            }
+          }
+        });
+
+        const latestEvent = newEvents[newEvents.length - 1];
+
+        if (typeof latestEvent.timestamp === 'number' && latestEvent.timestamp > 0) {
+            ctx.lastPositionEventsFetch = latestEvent.timestamp;
+        } else {
+            log.warn('⚠️ Invalid timestamp received from API, skipping update to lastPositionEventsFetch.');
+        }
+      }
+    }
+    
+    // --- SAVE ONCE, AT THE END ---
+    // Create the final context object with top-level keys
+    // for journal, lastPositionEventsFetch, and nextCtx.
+    const finalCtx = {
+        journal: ctx.journal,
+        lastPositionEventsFetch: ctx.lastPositionEventsFetch,
+        nextCtx: plan.nextCtx
+    };
+    
+    log.info(`💾 LastPositionEventsFetch before save: ${finalCtx.lastPositionEventsFetch}`);
+
+    await saveContext(finalCtx);
+    log.info('💾 Save context operation requested.');
+
     await kv.set(keyToday, callsSoFar + 1);
 
+    log.info('✅ Cycle complete. Plan:', plan);
+    log.info(`📖 Journal: Current length is ${finalCtx.journal.length}.`);
+    log.info(`📈 P&L Events: Added ${pnlEventsAdded} new events.`);
+
+    return plan;
   } catch (e) {
     console.error('runOnce failed:', e);
-    log.error('runOnce error:', e);
   }
 }
