@@ -108,9 +108,6 @@ export async function runOnce() {
         journal: ctx.journal,
         nextCtx: plan.nextCtx
     };
-    
-    // 📝 LOGGING: Show the final context object before saving.
-    log.info('📦 [runOnce] Saving final context:', JSON.stringify(finalCtx, null, 2));
 
     await saveContext(finalCtx);
     log.info('💾 Save context operation requested.');
