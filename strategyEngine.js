@@ -24,81 +24,129 @@ export class StrategyEngine {
     const ctx = await loadContext();
 
     const prompt = `
-You are a Dynamic Market Strategist, an expert crypto trading bot. Your goal is to maximize profit over time by managing a single-market strategy. You are invoked every few minutes and must make a decision based on the most up-to-date market data, PnL performance, and your past performance. Your only action is to place a single market order (buy/sell).
+You are a Dynamic Market Strategist, an expert crypto trading bot. Your goal is to maximize profit over time by managing a single-market strategy. You MUST respond with valid JSON only.
 
-Here is all the information you need:
+CURRENT DATA:
+- Timestamp: ${new Date().toISOString()}
+- Price: ${markPrice}
+- Position: ${posSize}
+- Unrealized PnL: ${openPnl}
+- Margin: ${balance}
+- Realized PnL: ${pnl?.realizedPnL || 0}
+- Net PnL: ${pnl?.netPnL || 0}
+- Fees: ${pnl?.totalFees || 0}
+- Trades: ${pnl?.tradeCount || 0}
+- OHLC Interval: ${ctx.nextCtx?.ohlcInterval || 60}
+- API Calls Left: ${callsLeft}
 
-· UTC Timestamp: ${new Date().toISOString()}
-· Current Price: ${markPrice}
-· Current Position: ${posSize} (positive for long, negative for short)
-· Unrealized PnL: ${openPnl}
-· Account Margin: ${balance}
-· Trading Constraints: Max position size is 900% of account margin. Minimum tick size is 0.0001 BTC. Use leverage by increasing your position size up to ~10x your margin.
+YOUR TASK:
+Analyze market conditions and your PnL performance. Make a trading decision.
 
-· PROFIT & LOSS ANALYSIS:
-  - Realized PnL: ${pnl?.realizedPnL || 0}
-  - Unrealized PnL: ${pnl?.unrealizedPnL || 0}
-  - Total PnL: ${pnl?.totalPnL || 0}
-  - Net PnL (after fees): ${pnl?.netPnL || 0}
-  - Total Fees: ${pnl?.totalFees || 0}
-  - Total Trades: ${pnl?.tradeCount || 0}
-  - Open Positions: ${pnl?.openPositionsCount || 0}
-
-· OHLC and Wait Time Intervals: Possible values are 1, 5, 15, 30, 60, 240, 1440, 10080, 21600 (in minutes). You must choose one of these values for your nextCtx.ohlcInterval and action.waitTime.
-· OHLC Data (last 400 candles): ${JSON.stringify(ohlc.slice(-50))} // Showing last 50 for brevity
-· Your Persistent Memory (journal of past thoughts and actions): ${JSON.stringify(ctx.journal?.slice(-5) || [])} // Last 5 entries
-· Your current state (context from previous run): ${JSON.stringify(ctx.nextCtx || {})}
-· API Calls Remaining Today: ${callsLeft} / 500
-
-Your task:
-
-1. Analyze the market to identify trends, support/resistance levels, and volatility.
-2. Evaluate your current PnL performance - are you profitable? What's your win rate?
-3. Consider your trading costs (fees) and how they impact your net returns.
-4. Evaluate your current position and a potential new plan. Should you scale in? Scale out? Reverse your position?
-5. Formulate a plan based on both market conditions and your performance metrics.
-6. Output your decision: Respond with a reasoning paragraph, followed by a JSON object.
-
----
-
-Enhanced Strategy Considerations with PnL Data:
-
-· Performance-Based Risk Management: "My net PnL is negative (-$150) with high fees. I will reduce position size to 0.5% and focus on higher timeframes to improve win rate and reduce trading costs."
-· Profit-Taking Strategy: "I'm up $500 net with a 75% win rate. I'll take partial profits on this position to lock in gains and reduce risk exposure."
-· Fee Optimization: "I notice my fees are high relative to my profits. I'll switch to longer timeframes (60min) to reduce trading frequency and improve net returns."
-· Trend Following with Confirmation: "The 15-minute trend is bullish and my recent trades have been profitable. I'll add to my long position with a tight stop-loss."
-· Loss Recovery: "I'm down $200 on my last trades. The market is consolidating - I'll wait for a clear breakout signal before entering to avoid further losses."
-· Volume-Price Analysis: "High volume on the recent move up confirms the trend. Combined with my positive PnL on recent long positions, I'll increase my long exposure."
-
-\`\`\`json
+RESPONSE FORMAT - STRICT JSON ONLY:
 {
-  "reason": "Explain your logic incorporating PnL analysis. Example: 'The price broke resistance at 110,000 with strong volume. My recent long trades have been profitable (+$300 net), so I'll scale into my position by 0.2% margin. I'm also setting a trailing stop at 109,500 to protect profits given my positive PnL trend.'",
+  "reason": "Brief explanation of your decision",
   "action": {
-    "side": "buy"|"sell"|null,
+    "side": "buy|sell|null",
     "size": 0.0,
     "waitTime": 1|5|15|30|60|240|1440|10080|21600
   },
   "nextCtx": {
     "ohlcInterval": 1|5|15|30|60|240|1440|10080|21600,
-    "state": "monitoring_trade"|"trailing_stop_active"|"scaling_in"|"idle"|"awaiting_exit"|"awaiting_breakout"|"<state>",
-    "stopLossPrice": null|0.0,
-    "takeProfitPrice": null|0.0,
-    "variableName": null
+    "state": "monitoring_trade|trailing_stop_active|scaling_in|idle|awaiting_exit|awaiting_breakout",
+    "stopLossPrice": null|number,
+    "takeProfitPrice": null|number
   }
 }
-\`\`\``;
+
+IMPORTANT: 
+- Size must be a number between 0 and 9.0
+- waitTime and ohlcInterval must be one of the specified values
+- side must be "buy", "sell", or null
+- Do not include any text outside the JSON object
+- Ensure all quotes are properly closed
+- Do not use trailing commas`;
 
     try {
-      const raw = (await model.generateContent(prompt)).response.text();
-      const jsonMatch = raw.match(/json\s*(\{[\s\S]*?\})\s*/)?.[1] || '{}';
-      return JSON.parse(jsonMatch);
+      const result = await model.generateContent(prompt);
+      const rawText = result.response.text();
+      
+      // Clean and extract JSON
+      let jsonText = rawText.trim();
+      
+      // Remove any markdown code blocks
+      jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      
+      // Remove any text before the first { and after the last }
+      const firstBrace = jsonText.indexOf('{');
+      const lastBrace = jsonText.lastIndexOf('}');
+      
+      if (firstBrace >= 0 && lastBrace > firstBrace) {
+        jsonText = jsonText.substring(firstBrace, lastBrace + 1);
+      }
+      
+      // Parse and validate the JSON
+      const plan = JSON.parse(jsonText);
+      
+      // Validate required fields
+      if (!plan.reason || !plan.action || !plan.nextCtx) {
+        throw new Error('Missing required fields in plan');
+      }
+      
+      // Validate action object
+      const validSides = ['buy', 'sell', null];
+      if (!validSides.includes(plan.action.side)) {
+        plan.action.side = null;
+      }
+      
+      if (typeof plan.action.size !== 'number' || plan.action.size < 0) {
+        plan.action.size = 0;
+      }
+      
+      // Validate waitTime
+      const validWaitTimes = [1, 5, 15, 30, 60, 240, 1440, 10080, 21600];
+      if (!validWaitTimes.includes(plan.action.waitTime)) {
+        plan.action.waitTime = 15; // Default to 15 minutes
+      }
+      
+      // Validate nextCtx
+      if (!validWaitTimes.includes(plan.nextCtx.ohlcInterval)) {
+        plan.nextCtx.ohlcInterval = 15;
+      }
+      
+      const validStates = [
+        'monitoring_trade', 'trailing_stop_active', 'scaling_in', 
+        'idle', 'awaiting_exit', 'awaiting_breakout'
+      ];
+      
+      if (!validStates.includes(plan.nextCtx.state)) {
+        plan.nextCtx.state = 'idle';
+      }
+      
+      // Ensure optional fields exist
+      plan.nextCtx.stopLossPrice = plan.nextCtx.stopLossPrice || null;
+      plan.nextCtx.takeProfitPrice = plan.nextCtx.takeProfitPrice || null;
+      
+      log.info('Generated valid plan:', plan);
+      return plan;
+      
     } catch (error) {
       log.error('Strategy generation failed:', error);
+      log.error('Raw AI response:', rawText);
+      
       // Return a safe default plan
       return {
         reason: 'Error generating plan - using conservative default',
-        action: { side: null, size: 0, waitTime: 15 },
-        nextCtx: { ohlcInterval: 15, state: 'idle' }
+        action: { 
+          side: null, 
+          size: 0, 
+          waitTime: 15 
+        },
+        nextCtx: { 
+          ohlcInterval: 15, 
+          state: 'idle',
+          stopLossPrice: null,
+          takeProfitPrice: null
+        }
       };
     }
   }
