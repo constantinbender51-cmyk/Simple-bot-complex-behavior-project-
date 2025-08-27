@@ -22,8 +22,6 @@ export async function decidePlan({
   });
 
   const context = await loadContext();
-  // 📝 LOGGING: Show the context that the decision engine will use.
-  log.info('📊 [decidePlan] Context loaded for decision:', JSON.stringify(context, null, 2));
 
   const engine = new StrategyEngine();
   const plan = await engine.generatePlan({
