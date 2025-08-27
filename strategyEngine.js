@@ -51,7 +51,7 @@ Your task:
 1.  **Analyze the market** to identify trends, support/resistance levels, and volatility.
 2.  **Evaluate your current position** and a potential new plan. Should you scale in? Scale out? Reverse your position?
 3.  **Formulate a plan.** This could be a market order, or a decision to do nothing and simply update your internal state for the next run.
-4.  **Output your decision:** Respond with a reasoning paragraph, followed by a JSON object. You have the flexibility to set a 'stopLossPrice' or 'takeProfitPrice' in your \`nextCtx\` when appropriate for your strategy. You may ommit keys that are not in use, eg. stopLossPrice when you are not managing a position.
+4.  **Output your decision:** Respond with a reasoning paragraph, followed by a JSON object. You have the flexibility to set a 'stopLossPrice' or 'takeProfitPrice' in your \`nextCtx\` when appropriate for your strategy. You may ommit keys that are not in use, eg. stopLossPrice when you are not managing a position. Save custom variables to give your thought process more depth.
 
 ---
 
