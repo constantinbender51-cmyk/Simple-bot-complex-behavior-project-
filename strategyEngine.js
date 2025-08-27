@@ -1,5 +1,5 @@
 // strategyEngine.js
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google-genai/generative-ai';
 import { loadContext } from './context.js';
 import { log } from './logger.js';
 
@@ -27,14 +27,24 @@ export class StrategyEngine {
 
     // Create a truncated version of the OHLC data for the console log only.
     // The original, full OHLC array will be sent to the AI.
-    const loggableOhlc = ohlc.length > 50 ? ohlc.slice(-50) : ohlc;
+    const loggableOhlc = ohlc.length > 5 ? ohlc.slice(-5) : ohlc;
     log.info('OHLC data length:', ohlc.length, '-> Log truncated to:', loggableOhlc.length);
     log.info('Logged OHLC:', loggableOhlc);
 
-    // The position size is calculated in units of Bitcoin (BTC)
     const posSize = position ? (+position.size) * (position.side === 'long' ? 1 : -1) : 0;
     const openPnl = position ? (+position.upl || 0) : 0;
     const ctx = await loadContext();
+    
+    // Log the full context objects for debugging. They will be truncated in the log for readability.
+    if (ctx.journal) {
+      const journalString = JSON.stringify(ctx.journal);
+      log.info('Logged Journal:', journalString.substring(0, 500) + (journalString.length > 500 ? '...' : ''));
+    }
+    
+    if (ctx.nextCtx) {
+      const nextCtxString = JSON.stringify(ctx.nextCtx);
+      log.info('Logged Next Context:', nextCtxString.substring(0, 500) + (nextCtxString.length > 500 ? '...' : ''));
+    }
 
     // The core prompt has been updated to use percentages for position sizing,
     // making the strategy scalable based on the account's margin.
