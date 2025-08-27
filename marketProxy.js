@@ -16,16 +16,22 @@ const api = new KrakenFuturesApi(
  * @param {number} lastPositionEventsFetch - The timestamp in milliseconds of the last event fetch.
  * @returns {object} A market data snapshot.
  */
-export async function getMarketSnapshot(lastPositionEventsFetch) {
+// marketProxy.js
+// ... (existing code)
+
+/**
+ * Fetches a snapshot of the current market data and new fills.
+ * The 'lastFillTime' parameter is a UTC timestamp in milliseconds.
+ * @param {number} lastFillTime - The UTC timestamp in milliseconds of the last fill fetch.
+ * @returns {object} A market data snapshot.
+ */
+export async function getMarketSnapshot(lastFillTime) {
   try {
-    // The fix: convert the JavaScript timestamp (milliseconds) to a Unix timestamp (seconds).
-    const sinceInSeconds = lastPositionEventsFetch ? Math.floor(lastPositionEventsFetch / 1000) : undefined;
-    
-    const [tickers, positions, accounts, events] = await Promise.all([
+    const [tickers, positions, accounts, fills] = await Promise.all([
       api.getTickers(),
       api.getOpenPositions(),
       api.getAccounts(),
-      {}//api.getPositionEvents({ since: sinceInSeconds })
+      api.getFills({ lastFillTime })
     ]);
 
     const ticker = tickers.tickers.find(t => t.symbol === PAIR);
@@ -38,7 +44,7 @@ export async function getMarketSnapshot(lastPositionEventsFetch) {
       markPrice: markPx,
       position,
       balance,
-      events: events.elements || []
+      events: fills.fills || []
     };
   } catch (err) {
     log.error('marketProxy failed:', err);
