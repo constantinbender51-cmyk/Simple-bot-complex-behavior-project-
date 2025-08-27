@@ -35,15 +35,13 @@ export class StrategyEngine {
     const openPnl = position ? (+position.upl || 0) : 0;
     const ctx = await loadContext();
     
-    // Log the full context objects for debugging. They will be truncated in the log for readability.
+    // Log the full context objects for debugging. They will no longer be truncated.
     if (ctx.journal) {
-      const journalString = JSON.stringify(ctx.journal);
-      log.info('Logged Journal:', journalString.substring(0, 500) + (journalString.length > 500 ? '...' : ''));
+      log.info('Logged Journal:', JSON.stringify(ctx.journal));
     }
     
     if (ctx.nextCtx) {
-      const nextCtxString = JSON.stringify(ctx.nextCtx);
-      log.info('Logged Next Context:', nextCtxString.substring(0, 500) + (nextCtxString.length > 500 ? '...' : ''));
+      log.info('Logged Next Context:', JSON.stringify(ctx.nextCtx));
     }
 
     // The core prompt has been updated to use percentages for position sizing,
