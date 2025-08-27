@@ -49,12 +49,6 @@ export class KrakenFuturesApi {
     if (method === 'POST') headers['Content-Type'] = 'application/x-www-form-urlencoded';
 
     const url = this.baseUrl + endpoint + query;
-    
-    // Add debug logging for the final URL
-    log.info(`[${method} ${endpoint}] Sending request to URL: ${url}`);
-    if (method === 'POST') {
-      log.info(`[${method} ${endpoint}] POST Data: ${postData}`);
-    }
 
     try {
       const { data } = await axios({ method, url, headers, data: postData });
