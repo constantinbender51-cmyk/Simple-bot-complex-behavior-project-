@@ -77,9 +77,7 @@ export class KrakenFuturesApi {
    */
   async getFills(p = {}) {
     // The Kraken API expects `lastFillTime` as a parameter. We'll pass it directly.
-    log.info('DEBUG: Calling getFills with params:', p);
     const result = await this._request('GET', '/derivatives/api/v3/fills', p);
-    log.info('DEBUG: getFills result:', result);
     return result;
   }
   
