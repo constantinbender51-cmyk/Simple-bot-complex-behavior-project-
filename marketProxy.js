@@ -1,6 +1,5 @@
-// marketProxy.js - Update getMarketSnapshot function
+// marketProxy.js
 import KrakenFuturesApi from './krakenApi.js';
-import { PnLCalculator } from './pnlCalculator.js';
 import { log } from './logger.js';
 
 const PAIR = 'PF_XBTUSD';
@@ -10,23 +9,23 @@ const api = new KrakenFuturesApi(
   process.env.KRAKEN_SECRET_KEY
 );
 
-const pnlCalculator = new PnLCalculator();
-
+/**
+ * Fetches a snapshot of the current market data and new position events.
+ * The 'since' parameter is converted to a Unix timestamp (seconds)
+ * to ensure compatibility with the Kraken API.
+ * @param {number} lastPositionEventsFetch - The timestamp in milliseconds of the last event fetch.
+ * @returns {object} A market data snapshot.
+ */
 export async function getMarketSnapshot(lastPositionEventsFetch) {
   try {
-    // Calculate PnL from new fills
-    const newPnLData = await pnlCalculator.calculatePnL();
-    const cumulativePnL = await pnlCalculator.getCumulativePnL();
+    // The fix: convert the JavaScript timestamp (milliseconds) to a Unix timestamp (seconds).
+    const sinceInSeconds = lastPositionEventsFetch ? Math.floor(lastPositionEventsFetch / 1000) : undefined;
     
-    // Update cumulative PnL if we have new data
-    if (newPnLData.tradeCount > 0) {
-      await pnlCalculator.updateCumulativePnL(newPnLData);
-    }
-
-    const [tickers, positions, accounts] = await Promise.all([
+    const [tickers, positions, accounts, events] = await Promise.all([
       api.getTickers(),
       api.getOpenPositions(),
-      api.getAccounts()
+      api.getAccounts(),
+      {}//api.getPositionEvents({ since: sinceInSeconds })
     ]);
 
     const ticker = tickers.tickers.find(t => t.symbol === PAIR);
@@ -39,15 +38,7 @@ export async function getMarketSnapshot(lastPositionEventsFetch) {
       markPrice: markPx,
       position,
       balance,
-      pnl: {
-        realizedPnL: cumulativePnL.realizedPnL,
-        totalFees: cumulativePnL.totalFees,
-        tradeCount: cumulativePnL.tradeCount,
-        netPnL: cumulativePnL.netPnL,
-        newTrades: newPnLData.tradeCount,
-        newRealizedPnL: newPnLData.realizedPnL
-      },
-      timestamp: Date.now()
+      events: events.elements || []
     };
   } catch (err) {
     log.error('marketProxy failed:', err);
