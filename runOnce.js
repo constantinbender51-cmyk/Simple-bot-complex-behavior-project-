@@ -42,15 +42,6 @@ export async function runOnce() {
     const snap = await getMarketSnapshot();
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
     
-    // 📝 LOGGING: Show the specific parameters being passed to the decision engine.
-    log.info('🔍 [runOnce] Preparing to call decidePlan with:', {
-      markPrice: snap.markPrice,
-      position: snap.position,
-      balance: snap.balance,
-      ohlcCount: ohlc.length,
-      callsLeft
-    });
-
     const plan = await decidePlan({
       markPrice: snap.markPrice,
       position: snap.position,
