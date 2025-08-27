@@ -32,9 +32,6 @@ export async function runOnce() {
 
     // --- LOAD ONCE, AT THE START ---
     const ctx = await loadContext();
-    
-    // 📝 LOGGING: Show the initial context loaded from Redis.
-    log.info('📊 [runOnce] Context loaded:', JSON.stringify(ctx, null, 2));
 
     if (!ctx.journal) {
       ctx.journal = [];
