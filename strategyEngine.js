@@ -1,5 +1,5 @@
 // strategyEngine.js
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google-ai/generative-ai';
 import { loadContext } from './context.js';
 import { log } from './logger.js';
 
@@ -7,6 +7,16 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
 export class StrategyEngine {
+  /**
+   * Generates a trading plan based on real-time market data and internal state.
+   * @param {object} params - The market and account data.
+   * @param {number} params.markPrice - The current market price.
+   * @param {object|null} params.position - The current open position.
+   * @param {number} params.balance - The account margin/balance.
+   * @param {Array<Array<number>>} params.ohlc - OHLC data for candles.
+   * @param {number} params.callsLeft - Remaining API calls for the day.
+   * @returns {Promise<object>} A JSON object containing the new trading plan.
+   */
   async generatePlan({ markPrice, position, balance, ohlc, callsLeft }) {
     // The position size is calculated in units of Bitcoin (BTC)
     const posSize = position ? (+position.size) * (position.side === 'long' ? 1 : -1) : 0;
@@ -24,7 +34,7 @@ Here is all the information you need:
 - Current Position: ${posSize} (positive for long, negative for short)
 - Unrealized PnL: ${openPnl}
 - Account Margin: ${balance}
-- Trading Constraints: Max position size is 900% of account margin. Minimum tick size is 0.0001 BTC. Use leverage by increasing your position size up to ~10x your margin. 
+- Trading Constraints: Max position size is 900% of account margin. Minimum tick size is 0.0001 BTC. Use leverage by increasing your position size up to ~10x your margin.
 - OHLC and Wait Time Intervals: Possible values are 1, 5, 15, 30, 60, 240, 1440, 10080, 21600 (in minutes). You must choose one of these values for your nextCtx.ohlcInterval and action.waitTime.
 - OHLC Data (last 400 candles): ${JSON.stringify(ohlc)}
 - Your Persistent Memory (journal of past thoughts and actions): ${JSON.stringify(ctx.journal || [])}
@@ -39,9 +49,11 @@ Your task:
 
 ---
 
-### Examples of Advanced Strategic Logic
+### Custom Strategy Generation
 
-The following are examples of how a sophisticated trading agent uses its memory and market data to perform complex, multi-step actions. You are not required to do these things, but you are capable of them.
+You are not limited to the examples below. You have the freedom to invent and apply a new strategy based on your analysis of the current market conditions. Use the data provided to develop a unique plan that you believe will maximize profit. This could be a novel combination of indicators, a new approach to risk management, or a previously unseen trading pattern you've identified.
+
+### Strategic Logic Examples
 
 #### Entry Strategies
 * **Initiating a New Trade from an Idle State:** "I am currently in an 'idle' state. My analysis of the recent OHLC data shows a clear bullish trend with strong volume on the 5-minute chart. I have detected a valid entry signal and will initiate a long position of 1% of my account margin with a stop-loss and take-profit target to manage risk."
