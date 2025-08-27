@@ -1,5 +1,5 @@
 // strategyEngine.js
-import { GoogleGenerativeAI } from '@google/generative-ai'; // Correct import path
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { loadContext } from './context.js';
 import { log } from './logger.js';
 
@@ -20,16 +20,16 @@ export class StrategyEngine {
    */
   async generatePlan({ markPrice, position, balance, ohlc, callsLeft }) {
     // Log each element passed into the function for analysis and debugging.
-    log('Current Mark Price:', markPrice);
-    log('Current Position:', position);
-    log('Account Balance:', balance);
-    log('Remaining API Calls:', callsLeft);
-    
+    log.info('Current Mark Price:', markPrice);
+    log.info('Current Position:', position);
+    log.info('Account Balance:', balance);
+    log.info('Remaining API Calls:', callsLeft);
+
     // Create a truncated version of the OHLC data for the console log only.
     // The original, full OHLC array will be sent to the AI.
     const loggableOhlc = ohlc.length > 50 ? ohlc.slice(-50) : ohlc;
-    log('OHLC data length:', ohlc.length, '-> Log truncated to:', loggableOhlc.length);
-    log('Logged OHLC:', loggableOhlc);
+    log.info('OHLC data length:', ohlc.length, '-> Log truncated to:', loggableOhlc.length);
+    log.info('Logged OHLC:', loggableOhlc);
 
     // The position size is calculated in units of Bitcoin (BTC)
     const posSize = position ? (+position.size) * (position.side === 'long' ? 1 : -1) : 0;
@@ -114,7 +114,7 @@ You are not limited to the examples below. You have the freedom to invent and ap
 \`\`\`
 `;
     // Log the prompt being sent to the AI. Truncate long strings for readability.
-    log('Sending prompt to AI:', prompt.substring(0, 500) + '...');
+    log.info('Sending prompt to AI:', prompt.substring(0, 500) + '...');
 
     const raw = (await model.generateContent(prompt)).response.text();
     return JSON.parse(raw.match(/```json\s*(\{[\s\S]*?\})\s*```/)?.[1] || '{}');
