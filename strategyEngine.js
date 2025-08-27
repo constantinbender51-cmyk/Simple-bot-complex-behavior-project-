@@ -40,7 +40,7 @@ Here is all the information you need:
 - Current Position: ${posSize} (positive for long, negative for short)
 - Unrealized PnL: ${openPnl}
 - Account Margin: ${balance}
-- Trading Constraints: Max position size is 900% of account margin. Minimum tick size is 0.0001 BTC. Use leverage by increasing your position size up to ~10x your margin.
+- Trading Constraints: Max position size is 900% of account margin. Minimum tick size is 0.0001 BTC. Use leverage by increasing your position size up to 9x your margin.
 - OHLC and Wait Time Intervals: Possible values are 1, 5, 15, 30, 60, 240, 1440, 10080, 21600 (in minutes). You must choose one of these values for your nextCtx.ohlcInterval and action.waitTime.
 - OHLC Data (last ${ohlc.length} candles): ${JSON.stringify(ohlc)}
 - Your Persistent Memory (journal of past thoughts and actions): ${JSON.stringify(ctx.journal || [])}
@@ -51,7 +51,7 @@ Your task:
 1.  **Analyze the market** to identify trends, support/resistance levels, and volatility.
 2.  **Evaluate your current position** and a potential new plan. Should you scale in? Scale out? Reverse your position?
 3.  **Formulate a plan.** This could be a market order, or a decision to do nothing and simply update your internal state for the next run.
-4.  **Output your decision:** Respond with a reasoning paragraph, followed by a JSON object. You have the flexibility to set a 'stopLossPrice' or 'takeProfitPrice' in your \`nextCtx\` when appropriate for your strategy.
+4.  **Output your decision:** Respond with a reasoning paragraph, followed by a JSON object. You have the flexibility to set a 'stopLossPrice' or 'takeProfitPrice' in your \`nextCtx\` when appropriate for your strategy. You may ommit keys that are not in use, eg. stopLossPrice when you are not managing a position.
 
 ---
 
@@ -85,6 +85,7 @@ You are not limited to the examples below. You have the freedom to invent and ap
 * **Risk-Adjusted Sizing:** "Market volatility has increased significantly over the past 24 hours. My trading signal is strong, but to mitigate risk, I will only open a small position of 1% of my account margin. If this trade is profitable, I will consider scaling in on the next signal."
 * **Trading Log and P&L:** "I have just closed a trade with a P&L of +$250.00. I will record this in my journal to keep a history of my performance, which will inform my future decisions."
 * **Trading Based on API Call Budget:** "I only have 50 API calls remaining today. The market is currently consolidating with no clear signal. Instead of making a low-conviction trade, I will conserve my API budget and wait for a high-probability setup, such as a breakout on the 60-minute chart, to emerge. My next run will be after a wait time of 60 minutes."
+* **Error Analysis and Strategy Adjustment:** "I have just closed a trade at a loss of -$150.00. The primary reason for the loss was entering a long position too early, without waiting for the bullish divergence to be confirmed by an increase in volume. I will record this mistake in my journal and, as a corrective measure, will reduce my maximum position size to 0.5% of my account margin for the next three trades to mitigate risk. My state is now 'error_correction'."
 ---
 
 \`\`\`json
@@ -97,7 +98,7 @@ You are not limited to the examples below. You have the freedom to invent and ap
   },
   "nextCtx": {
     "ohlcInterval": 1|5|15|30|60|240|1440|10080|21600
-    "state": "monitoring_trade"|"trailing_stop_active"|"scaling_in"|"idle"|"awaiting_exit"|"awaiting_breakout"|"<state>",
+    "state": "monitoring_trade"|"trailing_stop_active"|"scaling_in"|"idle"|"awaiting_exit"|"awaiting_breakout"|"error_correction"|"<state>",
     "stopLossPrice": null|0.0,
     "takeProfitPrice": null|0.0,
     "variableName": null
