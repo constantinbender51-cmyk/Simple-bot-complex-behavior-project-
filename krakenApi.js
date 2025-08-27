@@ -70,9 +70,7 @@ export class KrakenFuturesApi {
   
   // LOGGING: Log both params and the result for getFills
   async getFills(p) {
-    log.info('DEBUG: Calling getFills with params:', p);
     const result = await this._request('GET', '/derivatives/api/v3/fills', p);
-    log.info('DEBUG: getFills result:', result);
     return result;
   }
   
