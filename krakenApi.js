@@ -68,9 +68,18 @@ export class KrakenFuturesApi {
   getOpenPositions = () => this._request('GET', '/derivatives/api/v3/openpositions');
   getRecentOrders = p => this._request('GET', '/derivatives/api/v3/recentorders', p);
   
-  // LOGGING: Log both params and the result for getFills
-  async getFills(p) {
+  /**
+   * Fetches executed fills.
+   * This replaces getPositionEvents for tracking closed trades and PnL.
+   * @param {object} p - Parameters for the request.
+   * @param {number} [p.lastFillTime] - The timestamp in milliseconds of the last fill to fetch from.
+   * @returns {Promise<object>}
+   */
+  async getFills(p = {}) {
+    // The Kraken API expects `lastFillTime` as a parameter. We'll pass it directly.
+    log.info('DEBUG: Calling getFills with params:', p);
     const result = await this._request('GET', '/derivatives/api/v3/fills', p);
+    log.info('DEBUG: getFills result:', result);
     return result;
   }
   
@@ -92,12 +101,6 @@ export class KrakenFuturesApi {
     return (data.result[key] || []).map(o => ({
       date: +o[0], open: +o[1], high: +o[2], low: +o[3], close: +o[4], volume: +o[6]
     }));
-  }
-
-  // LOGGING: Log both params and the result for getPositionEvents
-  async getPositionEvents(p) {
-    const result = await this._request('GET', '/api/history/v3/positions', p);
-    return result;
   }
 }
 
