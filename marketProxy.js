@@ -11,19 +11,17 @@ const api = new KrakenFuturesApi(
 
 /**
  * Fetches a snapshot of the current market data and new position events.
- * @param {number} lastPositionEventsFetch - The timestamp in milliseconds of the last event fetch.
+ * @param {number} lastFillTime - The timestamp in milliseconds of the last event fetch.
  * @returns {object} A market data snapshot including new fills.
  */
-export async function getMarketSnapshot(lastPositionEventsFetch) {
+export async function getMarketSnapshot(lastFillTime) {
   try {
-    // We are temporarily removing the lastFillTime parameter to bypass the API error.
-    // This will fetch all fills on every run, which is inefficient, but should
-    // allow the program to proceed and calculate P&L correctly.
+    // Correctly pass the lastFillTime to the API to fetch only new fills.
     const [tickers, positions, accounts, fills] = await Promise.all([
       api.getTickers(),
       api.getOpenPositions(),
       api.getAccounts(),
-      api.getFills()
+      api.getFills(lastFillTime ? { lastFillTime: lastFillTime } : {})
     ]);
 
     const ticker = tickers.tickers.find(t => t.symbol === PAIR);
