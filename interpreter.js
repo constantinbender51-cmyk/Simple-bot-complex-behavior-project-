@@ -8,9 +8,6 @@ const MIN_TICK = 0.0001;
 export async function interpret(plan) {
   const { side, size, waitTime, ohlcInterval, reason } = plan;
   
-  // 📝 LOGGING: Show what the interpreter received.
-  log.info(`🎯 [interpreter] Received plan: side=${side}, size=${size}, waitTime=${waitTime}`);
-
   if (side && size !== 0) {
     // allow 1 tick of numerical tolerance
     const remainder = Math.abs((size / MIN_TICK) % 1);
