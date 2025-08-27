@@ -6,11 +6,22 @@ import { saveContext, loadContext } from './context.js';
 import { kv } from './redis.js';
 import { log } from './logger.js';
 import PnLCalculator from './pnlCalculator.js';
+import KrakenFuturesApi from './krakenApi.js';
 
 const PAIR = 'PF_XBTUSD';
+const krakenApi = new KrakenFuturesApi(
+  process.env.KRAKEN_API_KEY,
+  process.env.KRAKEN_SECRET_KEY
+);
 
 // Initialize the P&L calculator here
 const pnlCalculator = new PnLCalculator();
+
+async function fetchOHLC(intervalMinutes, count) {
+  const since = Math.floor(Date.now() / 1000 - intervalMinutes * 60 * count);
+  return krakenApi.fetchKrakenData({ pair: 'XBTUSD', interval: intervalMinutes, since });
+}
+
 
 export async function runOnce() {
   try {
@@ -20,11 +31,6 @@ export async function runOnce() {
     const callsLeft = limitPerDay - callsSoFar;
 
     // --- LOAD ONCE, AT THE START ---
-    // We now load the last processed fill time directly from the PnLCalculator's
-    // state to avoid duplicate state management.
-    const lastProcessedTime = await pnlCalculator.getLastProcessedFillTime();
-    
-    // The context will now only store the bot's action journal
     const ctx = await loadContext();
     
     log.info('📊 Keys in context loaded from Redis:', Object.keys(ctx));
@@ -33,8 +39,9 @@ export async function runOnce() {
       ctx.journal = [];
     }
 
-    // Pass the last processed time to getMarketSnapshot to fetch only new fills
-    const snap = await getMarketSnapshot(lastProcessedTime);
+    // Now calling getMarketSnapshot without the lastProcessedTime parameter
+    // as it was causing an API error. The PnLCalculator will handle filtering.
+    const snap = await getMarketSnapshot();
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
 
     const plan = await decidePlan({
@@ -62,9 +69,9 @@ export async function runOnce() {
     await interpret(plan.action);
 
     // --- NEW P&L CALCULATION AND JOURNALING ---
-    // Use the PnLCalculator to process the fills and get new P&L data
-    // The fills are now correctly filtered by time in marketProxy.js
-    const { newFills, realizedPnL, totalFees, tradeCount } = await pnlCalculator.calculatePnL(snap.fills);
+    // Pass the full list of fills to the PnLCalculator, which will handle filtering
+    // and processing only the new ones.
+    const { newFills, realizedPnL, totalFees, tradeCount } = await pnlCalculator.calculateAndSavePnL(snap.fills);
     
     let pnlEventsAdded = 0;
     if (newFills.length > 0) {
@@ -80,13 +87,6 @@ export async function runOnce() {
         };
         ctx.journal.push(pnlEvent);
         pnlEventsAdded++;
-      });
-      
-      // Update the cumulative P&L with the new data
-      await pnlCalculator.updateCumulativePnL({
-        realizedPnL: realizedPnL,
-        totalFees: totalFees,
-        tradeCount: tradeCount
       });
     }
     
