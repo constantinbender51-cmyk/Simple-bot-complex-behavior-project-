@@ -51,9 +51,9 @@ export class KrakenFuturesApi {
     const url = this.baseUrl + endpoint + query;
     
     // Add debug logging for the final URL
-    log.debug(`[${method} ${endpoint}] Sending request to URL: ${url}`);
+    log.info(`[${method} ${endpoint}] Sending request to URL: ${url}`);
     if (method === 'POST') {
-      log.debug(`[${method} ${endpoint}] POST Data: ${postData}`);
+      log.info(`[${method} ${endpoint}] POST Data: ${postData}`);
     }
 
     try {
