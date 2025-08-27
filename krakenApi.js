@@ -23,9 +23,9 @@ export class KrakenFuturesApi {
   _sign(endpoint, nonce, postData) {
     const path = endpoint.replace('/derivatives', '');
     const hash = crypto.createHash('sha256')
-      .update(postData + nonce + path).digest();
+                   .update(postData + nonce + path).digest();
     return crypto.createHmac('sha512', Buffer.from(this.apiSecret, 'base64'))
-      .update(hash).digest('base64');
+                 .update(hash).digest('base64');
   }
 
   async _request(method, endpoint, params = {}) {
@@ -33,36 +33,29 @@ export class KrakenFuturesApi {
     let postData = '';
     let query = '';
 
-    if (method === 'GET' && Object.keys(params).length > 0) {
-      query = '?' + qs.stringify(params);
-    } else if (method === 'POST') {
-      postData = JSON.stringify(params);
-    }
-
-    const url = `${this.baseUrl}${endpoint}${query}`;
-    const signature = this._sign(endpoint, nonce, postData);
-
-    const config = {
-      method,
-      url,
-      headers: {
-        'APIKey': this.apiKey,
-        'Nonce': nonce,
-        'Authent': signature,
-        'Content-Type': 'application/json'
-      }
-    };
-
     if (method === 'POST') {
-      config.data = postData;
+      postData = qs.stringify(params);
+    } else if (method === 'GET' && Object.keys(params).length) {
+      query = '?' + qs.stringify(params);
+      postData = qs.stringify(params);
     }
+
+    const headers = {
+      APIKey: this.apiKey,
+      Nonce: nonce,
+      Authent: this._sign(endpoint, nonce, postData),
+      'User-Agent': 'TradingBot/1.0'
+    };
+    if (method === 'POST') headers['Content-Type'] = 'application/x-www-form-urlencoded';
+
+    const url = this.baseUrl + endpoint + query;
 
     try {
-      const response = await axios(config);
-      return response.data;
-    } catch (error) {
-      log.error('API request failed:', error.response?.data || error.message);
-      throw error;
+      const { data } = await axios({ method, url, headers, data: postData });
+      return data;
+    } catch (e) {
+      const info = e.response?.data || { message: e.message };
+      throw new Error(`[${method} ${endpoint}] ${JSON.stringify(info)}`);
     }
   }
 
@@ -74,20 +67,15 @@ export class KrakenFuturesApi {
   getOpenOrders = () => this._request('GET', '/derivatives/api/v3/openorders');
   getOpenPositions = () => this._request('GET', '/derivatives/api/v3/openpositions');
   getRecentOrders = p => this._request('GET', '/derivatives/api/v3/recentorders', p);
-
-  // Fixed getFills function with proper error handling
-  async getFills(params = {}) {
-    try {
-      log.info('DEBUG: Calling getFills with params:', params);
-      const result = await this._request('GET', '/derivatives/api/v3/fills', params);
-      log.info('DEBUG: getFills result:', result);
-      return result;
-    } catch (error) {
-      log.error('getFills failed:', error);
-      throw error;
-    }
+  
+  // LOGGING: Log both params and the result for getFills
+  async getFills(p) {
+    log.info('DEBUG: Calling getFills with params:', p);
+    const result = await this._request('GET', '/derivatives/api/v3/fills', p);
+    log.info('DEBUG: getFills result:', result);
+    return result;
   }
-
+  
   getTransfers = p => this._request('GET', '/derivatives/api/v3/transfers', p);
   getNotifications = () => this._request('GET', '/derivatives/api/v3/notifications');
   sendOrder = p => this._request('POST', '/derivatives/api/v3/sendorder', p);
@@ -104,75 +92,14 @@ export class KrakenFuturesApi {
     if (data.error?.length) throw new Error(data.error.join(', '));
     const key = Object.keys(data.result).find(k => k !== 'last');
     return (data.result[key] || []).map(o => ({
-      date: +o[0],
-      open: +o[1],
-      high: +o[2],
-      low: +o[3],
-      close: +o[4],
-      volume: +o[6]
+      date: +o[0], open: +o[1], high: +o[2], low: +o[3], close: +o[4], volume: +o[6]
     }));
   }
 
-  // Replaced getPositionEvents with PnL calculation function
-  async calculateProfitAndLoss(params = {}) {
-    try {
-      log.info('DEBUG: Calculating PnL with params:', params);
-      
-      // Get fills (trades) and open positions
-      const [fillsResponse, openPositionsResponse] = await Promise.all([
-        this.getFills(params),
-        this.getOpenPositions()
-      ]);
-
-      const fills = fillsResponse.fills || [];
-      const openPositions = openPositionsResponse.openPositions || [];
-
-      // Calculate realized PnL from fills
-      let realizedPnL = 0;
-      let totalFees = 0;
-      let tradeCount = 0;
-
-      fills.forEach(fill => {
-        if (fill.realizedPnl) {
-          realizedPnL += parseFloat(fill.realizedPnl) || 0;
-        }
-        if (fill.fee) {
-          totalFees += parseFloat(fill.fee) || 0;
-        }
-        tradeCount++;
-      });
-
-      // Calculate unrealized PnL from open positions
-      let unrealizedPnL = 0;
-      openPositions.forEach(position => {
-        if (position.unrealizedPnl) {
-          unrealizedPnL += parseFloat(position.unrealizedPnl) || 0;
-        }
-      });
-
-      // Calculate total PnL
-      const totalPnL = realizedPnL + unrealizedPnL;
-      const netPnL = totalPnL - totalFees;
-
-      const result = {
-        realizedPnL,
-        unrealizedPnL,
-        totalPnL,
-        totalFees,
-        netPnL,
-        tradeCount,
-        fillsCount: fills.length,
-        openPositionsCount: openPositions.length,
-        timestamp: Date.now()
-      };
-
-      log.info('DEBUG: PnL calculation result:', result);
-      return result;
-
-    } catch (error) {
-      log.error('PnL calculation failed:', error);
-      throw error;
-    }
+  // LOGGING: Log both params and the result for getPositionEvents
+  async getPositionEvents(p) {
+    const result = await this._request('GET', '/api/history/v3/positions', p);
+    return result;
   }
 }
 
