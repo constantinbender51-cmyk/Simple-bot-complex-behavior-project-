@@ -33,7 +33,8 @@ export async function runOnce() {
     // --- LOAD ONCE, AT THE START ---
     const ctx = await loadContext();
     
-    log.info('📊 Keys in context loaded from Redis:', Object.keys(ctx));
+    // 📝 LOGGING: Show the initial context loaded from Redis.
+    log.info('📊 [runOnce] Context loaded:', JSON.stringify(ctx, null, 2));
 
     if (!ctx.journal) {
       ctx.journal = [];
@@ -43,6 +44,15 @@ export async function runOnce() {
     // as it was causing an API error. The PnLCalculator will handle filtering.
     const snap = await getMarketSnapshot();
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
+    
+    // 📝 LOGGING: Show the specific parameters being passed to the decision engine.
+    log.info('🔍 [runOnce] Preparing to call decidePlan with:', {
+      markPrice: snap.markPrice,
+      position: snap.position,
+      balance: snap.balance,
+      ohlcCount: ohlc.length,
+      callsLeft
+    });
 
     const plan = await decidePlan({
       markPrice: snap.markPrice,
@@ -51,6 +61,9 @@ export async function runOnce() {
       ohlc,
       callsLeft
     });
+
+    // 📝 LOGGING: Show the full plan object received from the decision engine.
+    log.info('📝 [runOnce] Plan received from decision engine:', JSON.stringify(plan, null, 2));
     
     // --- UPDATE CONTEXT IN-MEMORY ---
     const actionEntry = {
@@ -65,6 +78,9 @@ export async function runOnce() {
       type: 'bot_action'
     };
     ctx.journal.push(actionEntry);
+
+    // 📝 LOGGING: Show the specific action being passed to the interpreter.
+    log.info('🚀 [runOnce] Passing action to interpreter:', JSON.stringify(plan.action, null, 2));
 
     await interpret(plan.action);
 
@@ -95,6 +111,9 @@ export async function runOnce() {
         journal: ctx.journal,
         nextCtx: plan.nextCtx
     };
+    
+    // 📝 LOGGING: Show the final context object before saving.
+    log.info('📦 [runOnce] Saving final context:', JSON.stringify(finalCtx, null, 2));
 
     await saveContext(finalCtx);
     log.info('💾 Save context operation requested.');
