@@ -19,6 +19,6 @@ export async function sendMarketOrder({ pair, side, size }) {
     orderType: 'mkt',
     symbol: pair,
     side,
-    size: size.toFixed(8)
+    size: size.toFixed(4)
   });
 }
