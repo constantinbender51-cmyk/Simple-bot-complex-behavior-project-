@@ -11,111 +11,96 @@ const krakenApi = new KrakenFuturesApi(
 export class PnLCalculator {
   constructor() {
     this.lastProcessedFillTimeKey = 'last_processed_fill_time';
+    this.cumulativeKey = 'cumulative_pnl';
+  }
+  
+  async getLastProcessedFillTime() {
+    return await kv.get(this.lastProcessedFillTimeKey) || 0;
   }
 
   /**
-   * Calculate PnL from all fills since last processing
+   * Calculate PnL from a list of fills
+   * @param {Array<Object>} fills - The fills to process.
    */
-  async calculatePnL() {
-    try {
-      // Get last processed fill time
-      const lastProcessedTime = await kv.get(this.lastProcessedFillTimeKey) || 0;
-      
-      // Fetch new fills since last processing
-      const fillsResponse = await krakenApi.getFills(lastProcessedTime ? parseInt(lastProcessedTime) : null);
-      const fills = fillsResponse.fills || [];
-      
-      if (fills.length === 0) {
-        return {
-          realizedPnL: 0,
-          totalFees: 0,
-          tradeCount: 0,
-          newFills: []
+  async calculatePnL(fills) {
+    if (!fills || fills.length === 0) {
+      return {
+        realizedPnL: 0,
+        totalFees: 0,
+        tradeCount: 0,
+        newFills: []
+      };
+    }
+    
+    let realizedPnL = 0;
+    let totalFees = 0;
+    let latestFillTime = await this.getLastProcessedFillTime();
+
+    const trades = {};
+    
+    fills.forEach(fill => {
+      const orderId = fill.orderId;
+      if (!trades[orderId]) {
+        trades[orderId] = {
+          symbol: fill.symbol,
+          side: fill.side,
+          fills: [],
+          totalQuantity: 0,
+          totalCost: 0,
+          totalFees: 0
         };
       }
-
-      // Process fills and calculate PnL
-      let realizedPnL = 0;
-      let totalFees = 0;
-      let latestFillTime = lastProcessedTime;
-
-      // Group fills by order to calculate complete trade PnL
-      const trades = {};
       
-      fills.forEach(fill => {
-        const orderId = fill.orderId;
-        if (!trades[orderId]) {
-          trades[orderId] = {
-            symbol: fill.symbol,
-            side: fill.side,
-            fills: [],
-            totalQuantity: 0,
-            totalCost: 0,
-            totalFees: 0
-          };
-        }
-        
-        trades[orderId].fills.push(fill);
-        trades[orderId].totalQuantity += parseFloat(fill.size);
-        trades[orderId].totalCost += parseFloat(fill.size) * parseFloat(fill.price);
-        trades[orderId].totalFees += parseFloat(fill.fee) || 0;
-        
-        // Track latest fill time
-        const fillTime = new Date(fill.fillTime).getTime();
-        if (fillTime > latestFillTime) {
-          latestFillTime = fillTime;
-        }
-      });
-
-      // Calculate PnL for each complete trade
-      Object.values(trades).forEach(trade => {
-        if (trade.fills.length >= 2) { // Complete trade (entry + exit)
-          const entryFill = trade.fills.find(f => f.fillType === 'fill');
-          const exitFill = trade.fills.find(f => f.fillType === 'fill' && f !== entryFill);
-          
-          if (entryFill && exitFill) {
-            const entryPrice = parseFloat(entryFill.price);
-            const exitPrice = parseFloat(exitFill.price);
-            const quantity = parseFloat(entryFill.size);
-            
-            let tradePnL;
-            if (trade.side === 'buy') {
-              tradePnL = (exitPrice - entryPrice) * quantity;
-            } else {
-              tradePnL = (entryPrice - exitPrice) * quantity;
-            }
-            
-            realizedPnL += tradePnL;
-            totalFees += trade.totalFees;
-          }
-        }
-      });
-
-      // Update last processed time
-      if (latestFillTime > lastProcessedTime) {
-        await kv.set(this.lastProcessedFillTimeKey, latestFillTime.toString());
+      trades[orderId].fills.push(fill);
+      trades[orderId].totalQuantity += parseFloat(fill.size);
+      trades[orderId].totalCost += parseFloat(fill.size) * parseFloat(fill.price);
+      trades[orderId].totalFees += parseFloat(fill.fee) || 0;
+      
+      const fillTime = new Date(fill.fillTime).getTime();
+      if (fillTime > latestFillTime) {
+        latestFillTime = fillTime;
       }
+    });
 
-      return {
-        realizedPnL,
-        totalFees,
-        tradeCount: Object.keys(trades).length,
-        newFills: fills,
-        netPnL: realizedPnL - totalFees
-      };
+    Object.values(trades).forEach(trade => {
+      // For this example, we calculate P&L for a single-order-per-trade model.
+      // In a real scenario, you would need to match opposing fills across different orders.
+      if (Math.abs(trade.totalQuantity) < 0.0000001) { // Check for a closed-out position from this order
+        const entryPrice = trade.totalCost / trade.totalQuantity;
+        const exitFill = trade.fills[trade.fills.length - 1]; // Assume last fill is the exit
+        const exitPrice = parseFloat(exitFill.price);
+        const quantity = parseFloat(trade.fills[0].size); // Assume first fill size is the trade size
+        
+        let tradePnL;
+        if (trade.side === 'buy') {
+          tradePnL = (exitPrice - entryPrice) * quantity;
+        } else {
+          tradePnL = (entryPrice - exitPrice) * quantity;
+        }
+        
+        realizedPnL += tradePnL;
+        totalFees += trade.totalFees;
+      }
+    });
 
-    } catch (error) {
-      log.error('Error calculating PnL:', error);
-      throw error;
+    if (latestFillTime > (await this.getLastProcessedFillTime())) {
+      await kv.set(this.lastProcessedFillTimeKey, latestFillTime.toString());
     }
+
+    return {
+      realizedPnL,
+      totalFees,
+      tradeCount: Object.keys(trades).length,
+      newFills: fills,
+      netPnL: realizedPnL - totalFees
+    };
   }
 
   /**
    * Get cumulative PnL statistics
    */
   async getCumulativePnL() {
-    const cumulativeKey = 'cumulative_pnl';
-    const cumulativeData = await kv.get(cumulativeKey) || {
+    const cumulativeData = await kv.get(this.cumulativeKey) || {
       totalRealizedPnL: 0,
       totalFees: 0,
       totalTrades: 0,
@@ -135,7 +120,6 @@ export class PnLCalculator {
    * Update cumulative PnL with new data
    */
   async updateCumulativePnL(newPnLData) {
-    const cumulativeKey = 'cumulative_pnl';
     const currentData = await this.getCumulativePnL();
     
     const updatedData = {
@@ -145,7 +129,7 @@ export class PnLCalculator {
       startTime: currentData.startTime
     };
 
-    await kv.set(cumulativeKey, updatedData);
+    await kv.set(this.cumulativeKey, updatedData);
     return updatedData;
   }
 }
