@@ -10,22 +10,19 @@ const api = new KrakenFuturesApi(
 );
 
 /**
- * Fetches a snapshot of the current market data and new position events.
- * The 'since' parameter is converted to a Unix timestamp (seconds)
- * to ensure compatibility with the Kraken API.
- * @param {number} lastPositionEventsFetch - The timestamp in milliseconds of the last event fetch.
- * @returns {object} A market data snapshot.
+ * Fetches a snapshot of the current market data and PnL information.
+ * @param {number} lastFetchTimestamp - The timestamp in milliseconds of the last fetch.
+ * @returns {object} A market data snapshot with PnL information.
  */
-export async function getMarketSnapshot(lastPositionEventsFetch) {
+export async function getMarketSnapshot(lastFetchTimestamp) {
   try {
-    // The fix: convert the JavaScript timestamp (milliseconds) to a Unix timestamp (seconds).
-    const sinceInSeconds = lastPositionEventsFetch ? Math.floor(lastPositionEventsFetch / 1000) : undefined;
-    
-    const [tickers, positions, accounts, events] = await Promise.all([
+    const sinceInSeconds = lastFetchTimestamp ? Math.floor(lastFetchTimestamp / 1000) : undefined;
+
+    const [tickers, positions, accounts, pnl] = await Promise.all([
       api.getTickers(),
       api.getOpenPositions(),
       api.getAccounts(),
-      {}//api.getPositionEvents({ since: sinceInSeconds })
+      api.calculateProfitAndLoss({ since: sinceInSeconds })
     ]);
 
     const ticker = tickers.tickers.find(t => t.symbol === PAIR);
@@ -38,7 +35,8 @@ export async function getMarketSnapshot(lastPositionEventsFetch) {
       markPrice: markPx,
       position,
       balance,
-      events: events.elements || []
+      pnl, // Now contains PnL information instead of events
+      timestamp: Date.now()
     };
   } catch (err) {
     log.error('marketProxy failed:', err);
