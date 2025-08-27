@@ -80,7 +80,9 @@ You are not limited to the examples below. You have the freedom to invent and ap
 * **Volume Confirmation:** "The price has risen significantly, but there is no corresponding increase in volume. This suggests the move may not be sustainable. I will hold my current position but set a much tighter trailing stop-loss to protect against a sudden reversal."
 * **Multi-Indicator Confirmation:** "The 30-minute chart shows that the MACD is about to cross bullish, and the RSI is rising from the neutral zone. This is a strong confluence of signals. My current state is 'awaiting_confirmation'. I will wait for a confirmed bullish cross of the MACD on the next candle before initiating a long position, as this will strengthen the conviction of the trade."
 
-#### Meta Strategies
+#### Macro Strategies
+* **Exploratory Analysis of Timeframes:** "I have no immediate trades to manage and am in an 'idle' state. I will use this opportunity to perform a deeper analysis of the weekly and monthly candles to re-evaluate my position within the 4-year BTC cycle. I'll save my findings in the \`nextCtx\` variable to inform my longer-term strategy. No market action will be taken at this time."
+* **Evaluating Position in a Multi-Year Cycle:** "I am currently in an 'idle' state, trading on 60-minute candles. However, my last review of the weekly and monthly charts indicates that the overall market is in a bullish phase of the 4-year BTC halving cycle. This big-picture analysis reinforces my bullish bias for short-term trades. I'll note this finding and continue seeking high-probability entry signals on my primary timeframe."
 * **Dynamic Strategy Switching:** "The long-term trend appears to be over. My analysis suggests a short-term reversal is likely. I will close my position and switch my strategy to 'short_scalping' with a 15-minute OHLC interval."
 * **Risk-Adjusted Sizing:** "Market volatility has increased significantly over the past 24 hours. My trading signal is strong, but to mitigate risk, I will only open a small position of 1% of my account margin. If this trade is profitable, I will consider scaling in on the next signal."
 * **Trading Log and P&L:** "I have just closed a trade with a P&L of +$250.00. I will record this in my journal to keep a history of my performance, which will inform my future decisions."
@@ -103,6 +105,31 @@ You are not limited to the examples below. You have the freedom to invent and ap
     "takeProfitPrice": null|0.0,
     "variableName": null
     "variableName": null
+  }
+}
+\`\`\`
+or
+\`\`\`json
+{
+  "reason": "I am currently managing a long position that is showing a small profit. Simultaneously, I am monitoring a key resistance level at 115,000 for a potential bullish breakout. My long-term trend-following strategy evaluation, which I've been running for 2 out of 4 days, began on August 25, 2025. This evaluation is showing a positive correlation with current market movements. I will continue to hold the position and monitor for either a breakout or the completion of my evaluation period.",
+  "action": {
+    "side": null,
+    "size": 0.0,
+    "waitTime": 60
+  },
+  "nextCtx": {
+    "ohlcInterval": 60,
+    "state": "manage_position&awaiting_breakout&evaluating_strategy",
+    "stopLossPrice": 109500,
+    "takeProfitPrice": 113000,
+    "strategyEvaluationData": {
+      "daysEvaluated": 2,
+      "totalDaysToEvaluate": 4,
+      "breakoutLevel": 115000,
+      "trendFollowingResult": "positive",
+      "trend": "bullish",
+      "startDate": "2025-08-25"
+    }
   }
 }
 \`\`\`
