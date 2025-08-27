@@ -1,8 +1,9 @@
 // strategyEngine.js
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google-genai/generative-ai'; // Correct import path
 import { loadContext } from './context.js';
 import { log } from './logger.js';
 
+// Initialize the Generative AI client with the API key.
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
@@ -18,6 +19,18 @@ export class StrategyEngine {
    * @returns {Promise<object>} A JSON object containing the new trading plan.
    */
   async generatePlan({ markPrice, position, balance, ohlc, callsLeft }) {
+    // Log each element passed into the function for analysis and debugging.
+    log('Current Mark Price:', markPrice);
+    log('Current Position:', position);
+    log('Account Balance:', balance);
+    log('Remaining API Calls:', callsLeft);
+    
+    // Create a truncated version of the OHLC data for the console log only.
+    // The original, full OHLC array will be sent to the AI.
+    const loggableOhlc = ohlc.length > 50 ? ohlc.slice(-50) : ohlc;
+    log('OHLC data length:', ohlc.length, '-> Log truncated to:', loggableOhlc.length);
+    log('Logged OHLC:', loggableOhlc);
+
     // The position size is calculated in units of Bitcoin (BTC)
     const posSize = position ? (+position.size) * (position.side === 'long' ? 1 : -1) : 0;
     const openPnl = position ? (+position.upl || 0) : 0;
@@ -36,7 +49,7 @@ Here is all the information you need:
 - Account Margin: ${balance}
 - Trading Constraints: Max position size is 900% of account margin. Minimum tick size is 0.0001 BTC. Use leverage by increasing your position size up to ~10x your margin.
 - OHLC and Wait Time Intervals: Possible values are 1, 5, 15, 30, 60, 240, 1440, 10080, 21600 (in minutes). You must choose one of these values for your nextCtx.ohlcInterval and action.waitTime.
-- OHLC Data (last 400 candles): ${JSON.stringify(ohlc)}
+- OHLC Data (last ${ohlc.length} candles): ${JSON.stringify(ohlc)}
 - Your Persistent Memory (journal of past thoughts and actions): ${JSON.stringify(ctx.journal || [])}
 - Your current state (context from previous run): ${JSON.stringify(ctx.nextCtx || {})}
 - API Calls Remaining Today: ${callsLeft} / 500
@@ -100,6 +113,9 @@ You are not limited to the examples below. You have the freedom to invent and ap
 }
 \`\`\`
 `;
+    // Log the prompt being sent to the AI. Truncate long strings for readability.
+    log('Sending prompt to AI:', prompt.substring(0, 500) + '...');
+
     const raw = (await model.generateContent(prompt)).response.text();
     return JSON.parse(raw.match(/```json\s*(\{[\s\S]*?\})\s*```/)?.[1] || '{}');
   }
