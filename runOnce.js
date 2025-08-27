@@ -42,16 +42,15 @@ export async function runOnce() {
     const ohlcInterval = ctx.nextCtx?.ohlcInterval || 60;
     const ohlc = await fetchOHLC(ohlcInterval, 400);
 
-    // Prepare data for strategy engine
-    const strategyData = {
-      markPrice: snapshot.markPrice,
-      position: snapshot.position,
-      balance: snapshot.balance,
-      pnl: snapshot.pnl, // Include PnL data
-      ohlc,
-      callsLeft
-    };
-
+    // runOnce.js - Update the strategyData preparation
+const strategyData = {
+  markPrice: snapshot.markPrice,
+  position: snapshot.position,
+  balance: snapshot.balance,
+  pnl: snapshot.pnl, // Include PnL data
+  ohlc,
+  callsLeft
+};
     // Generate trading plan
     const plan = await decidePlan(strategyData);
     log.info('Generated plan:', plan);
@@ -65,16 +64,22 @@ export async function runOnce() {
     await saveContext({
       ...ctx,
       lastFetchTimestamp: snapshot.timestamp,
-      journal: [...(ctx.journal || []), {
-        timestamp: new Date().toISOString(),
-        decision: plan.reason,
-        pnl: snapshot.pnl,
-        marketData: {
-          markPrice: snapshot.markPrice,
-          balance: snapshot.balance,
-          positionSize: snapshot.position ? (+snapshot.position.size) * (snapshot.position.side === 'long' ? 1 : -1) : 0
-        }
-      }],
+      // Update the journal entry to include PnL data
+journal: [...(ctx.journal || []), {
+  timestamp: new Date().toISOString(),
+  decision: plan.reason,
+  pnl: {
+    realized: snapshot.pnl.realizedPnL,
+    net: snapshot.pnl.netPnL,
+    fees: snapshot.pnl.totalFees,
+    trades: snapshot.pnl.tradeCount
+  },
+  marketData: {
+    markPrice: snapshot.markPrice,
+    balance: snapshot.balance,
+    positionSize: snapshot.position ? (+snapshot.position.size) * (snapshot.position.side === 'long' ? 1 : -1) : 0
+  }
+}],
       nextCtx: plan.nextCtx
     });
 
