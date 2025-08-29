@@ -53,7 +53,7 @@ export async function runOnce() {
     // to the balance at the beginning of the next trade.
     let pnlEvent = null;
     // Check if a new trade is being opened (i.e., we're moving from a zero position)
-    const isNewTrade = snap.position.size !== 0 && (ctx.lastPositionSize === undefined || ctx.lastPositionSize === 0);
+    const isNewTrade = snap.position?.size !== 0 && (ctx.lastPositionSize === undefined || ctx.lastPositionSize === 0);
     
     // If we're entering a new trade and have a previous trade's balance,
     // calculate the P&L from the last trade.
@@ -75,7 +75,7 @@ export async function runOnce() {
     }
     
     // Store the current position size for the next cycle's comparison
-    ctx.lastPositionSize = snap.position.size;
+    ctx.lastPositionSize = snap.position?.size ?? 0;
 
     // --- UPDATE CONTEXT IN-MEMORY ---
     const actionEntry = {
