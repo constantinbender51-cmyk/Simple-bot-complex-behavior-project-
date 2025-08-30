@@ -78,7 +78,7 @@ Example Output:
 `;
   log.info('Running AI analysis on multiple timeframes...');
   const timeframeResponse = await model.generateContent(timeframePrompt);
-  const timeframeData = JSON.parse(timeframeResponse.response.candidates.contents.parts.text().match(/```json\s*(\{[\s\S]*?\})\s*```/)?.[1] || '{}');
+  const timeframeData = JSON.parse(timeframeResponse.response.candidates.content.parts.text().match(/```json\s*(\{[\s\S]*?\})\s*```/)?.[1] || '{}');
   log.info('✅ Timeframe Analysis Complete:', timeframeData.reason);
 
   return {
