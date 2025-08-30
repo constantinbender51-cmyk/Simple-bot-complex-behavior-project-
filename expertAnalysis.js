@@ -31,28 +31,13 @@ export async function getExpertInsights() {
   const ctx = await loadContext();
 
   // Step 1: Fetch OHLC data for all relevant timeframes for multi-timeframe analysis.
-  // Adding a 2-second delay between each fetch to avoid rate limits on the Kraken API.
-  const ohlcData = {};
-  ohlcData['1m'] = await fetchOHLC(1, 400);
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  ohlcData['5m'] = await fetchOHLC(5, 400);
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  ohlcData['15m'] = await fetchOHLC(15, 400);
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  ohlcData['60m'] = await fetchOHLC(60, 400);
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  ohlcData['240m'] = await fetchOHLC(240, 400);
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  ohlcData['1d'] = await fetchOHLC(1440, 400);
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  ohlcData['1w'] = await fetchOHLC(10080, 400);
-
-  // Check if all fetched data is present before proceeding.
-  for (const [timeframe, data] of Object.entries(ohlcData)) {
-    if (data.length === 0) {
-      log.warn(`Warning: No OHLC data was fetched for the ${timeframe} timeframe. AI analysis may be incomplete.`);
-    }
-  }
+  const ohlc1m = await fetchOHLC(1, 400);
+  const ohlc5m = await fetchOHLC(5, 400);
+  const ohlc15m = await fetchOHLC(15, 400);
+  const ohlc60m = await fetchOHLC(60, 400);
+  const ohlc240m = await fetchOHLC(240, 400);
+  const ohlc1d = await fetchOHLC(1440, 400);
+  const ohlc1w = await fetchOHLC(10080, 400);
 
   // Step 2: AI Call to analyze the trading journal.
   const journalPrompt = `
@@ -66,10 +51,6 @@ Journal: ${JSON.stringify(ctx.journal || [])}
   const journalInsight = journalResponse.response.text();
   log.info('✅ Journal Analysis Complete:', journalInsight);
 
-  // Added a 20-second delay between AI calls to avoid rate limits.
-  log.info('Pausing for 20 seconds before the next AI call...');
-  await new Promise(resolve => setTimeout(resolve, 20000));
-
   // Step 3: AI Call to analyze multiple timeframes and select the most interesting one.
   const timeframePrompt = `
 You are a technical market analyst. Your task is to analyze OHLC data from multiple timeframes and identify which one currently shows the most a clear, tradeable signal (e.g., strong trend, clear support/resistance, a breakout pattern, or a reversal signal).
@@ -77,13 +58,13 @@ You are a technical market analyst. Your task is to analyze OHLC data from multi
 Provide a reasoning paragraph for your choice, followed by a JSON object with the best timeframe and a summary of the signal. The timeframe must be one of the provided values (1, 5, 15, 60, 240, 1440, 10080).
 
 Timeframe Data:
-- 1-minute: ${JSON.stringify(ohlcData['1m'].slice(-10))}
-- 5-minute: ${JSON.stringify(ohlcData['5m'].slice(-10))}
-- 15-minute: ${JSON.stringify(ohlcData['15m'].slice(-10))}
-- 60-minute: ${JSON.stringify(ohlcData['60m'].slice(-10))}
-- 240-minute: ${JSON.stringify(ohlcData['240m'].slice(-10))}
-- 1-day: ${JSON.stringify(ohlcData['1d'].slice(-10))}
-- 1-week: ${JSON.stringify(ohlcData['1w'].slice(-10))}
+- 1-minute: ${JSON.stringify(ohlc1m.slice(-10))}
+- 5-minute: ${JSON.stringify(ohlc5m.slice(-10))}
+- 15-minute: ${JSON.stringify(ohlc15m.slice(-10))}
+- 60-minute: ${JSON.stringify(ohlc60m.slice(-10))}
+- 240-minute: ${JSON.stringify(ohlc240m.slice(-10))}
+- 1-day: ${JSON.stringify(ohlc1d.slice(-10))}
+- 1-week: ${JSON.stringify(ohlc1w.slice(-10))}
 
 ---
 Example Output:
@@ -97,32 +78,22 @@ Example Output:
 `;
   log.info('Running AI analysis on multiple timeframes...');
   const timeframeResponse = await model.generateContent(timeframePrompt);
-  let timeframeData = {};
-  const rawResponseText = timeframeResponse.response.text();
-
-  // New, more robust JSON parsing logic
-  const jsonStartIndex = rawResponseText.indexOf('{');
-  const jsonEndIndex = rawResponseText.lastIndexOf('}');
-
-  if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonStartIndex < jsonEndIndex) {
-    const jsonString = rawResponseText.substring(jsonStartIndex, jsonEndIndex + 1);
-    try {
-      timeframeData = JSON.parse(jsonString);
-      log.info('✅ Timeframe Analysis Complete:', timeframeData.reason);
-    } catch (error) {
-      log.error('Error parsing JSON from AI. AI response was:', rawResponseText);
-      log.error('Error details:', error);
-    }
-  } else {
-    log.warn('Could not find a valid JSON object in the AI response.');
-    log.info('AI response was:', rawResponseText);
-  }
+  const timeframeData = JSON.parse(timeframeResponse.response.text().match(/```json\s*(\{[\s\S]*?\})\s*```/)?.[1] || '{}');
+  log.info('✅ Timeframe Analysis Complete:', timeframeResponse.response.text);
 
   return {
     journalInsight,
     timeframeData: {
       ...timeframeData,
-      ohlcData: ohlcData
+      ohlcData: {
+        1: ohlc1m,
+        5: ohlc5m,
+        15: ohlc15m,
+        60: ohlc60m,
+        240: ohlc240m,
+        1440: ohlc1d,
+        10080: ohlc1w,
+      }
     }
   };
 }
