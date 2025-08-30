@@ -53,7 +53,7 @@ export async function runOnce() {
     // --- P&L ESTIMATION LOGIC ---
     // Capture the state of the open position after the trade
     const postExecutionSnap = await getMarketSnapshot();
-    const postExecutionPosition = postExecutionSnap.position.openPositions;
+    const postExecutionPosition = postExecutionSnap.position;
     const currentPrice = postExecutionSnap.markPrice;
 
     let estimatedRealizedPnL = 0;
