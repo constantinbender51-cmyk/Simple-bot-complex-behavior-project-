@@ -97,8 +97,14 @@ Example Output:
 `;
   log.info('Running AI analysis on multiple timeframes...');
   const timeframeResponse = await model.generateContent(timeframePrompt);
-  const timeframeData = JSON.parse(timeframeResponse.response.text().match(/```json\s*(\{[\s\S]*?\})\s*```/)?.[1] || '{}');
-  log.info('✅ Timeframe Analysis Complete:', timeframeData.reason);
+  let timeframeData = {};
+  try {
+    timeframeData = JSON.parse(timeframeResponse.response.text().match(/```json\s*(\{[\s\S]*?\})\s*```/)?.[1] || '{}');
+    log.info('✅ Timeframe Analysis Complete:', timeframeData.reason);
+  } catch (error) {
+    log.error('Error parsing JSON from AI. AI response was:', timeframeResponse.response.text());
+    log.error('Error details:', error);
+  }
 
   return {
     journalInsight,
