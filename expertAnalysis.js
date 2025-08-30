@@ -31,13 +31,28 @@ export async function getExpertInsights() {
   const ctx = await loadContext();
 
   // Step 1: Fetch OHLC data for all relevant timeframes for multi-timeframe analysis.
-  const ohlc1m = await fetchOHLC(1, 400);
-  const ohlc5m = await fetchOHLC(5, 400);
-  const ohlc15m = await fetchOHLC(15, 400);
-  const ohlc60m = await fetchOHLC(60, 400);
-  const ohlc240m = await fetchOHLC(240, 400);
-  const ohlc1d = await fetchOHLC(1440, 400);
-  const ohlc1w = await fetchOHLC(10080, 400);
+  // Adding a 2-second delay between each fetch to avoid rate limits on the Kraken API.
+  const ohlcData = {};
+  ohlcData['1m'] = await fetchOHLC(1, 400);
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  ohlcData['5m'] = await fetchOHLC(5, 400);
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  ohlcData['15m'] = await fetchOHLC(15, 400);
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  ohlcData['60m'] = await fetchOHLC(60, 400);
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  ohlcData['240m'] = await fetchOHLC(240, 400);
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  ohlcData['1d'] = await fetchOHLC(1440, 400);
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  ohlcData['1w'] = await fetchOHLC(10080, 400);
+
+  // Check if all fetched data is present before proceeding.
+  for (const [timeframe, data] of Object.entries(ohlcData)) {
+    if (data.length === 0) {
+      log.warn(`Warning: No OHLC data was fetched for the ${timeframe} timeframe. AI analysis may be incomplete.`);
+    }
+  }
 
   // Step 2: AI Call to analyze the trading journal.
   const journalPrompt = `
@@ -62,13 +77,13 @@ You are a technical market analyst. Your task is to analyze OHLC data from multi
 Provide a reasoning paragraph for your choice, followed by a JSON object with the best timeframe and a summary of the signal. The timeframe must be one of the provided values (1, 5, 15, 60, 240, 1440, 10080).
 
 Timeframe Data:
-- 1-minute: ${JSON.stringify(ohlc1m.slice(-10))}
-- 5-minute: ${JSON.stringify(ohlc5m.slice(-10))}
-- 15-minute: ${JSON.stringify(ohlc15m.slice(-10))}
-- 60-minute: ${JSON.stringify(ohlc60m.slice(-10))}
-- 240-minute: ${JSON.stringify(ohlc240m.slice(-10))}
-- 1-day: ${JSON.stringify(ohlc1d.slice(-10))}
-- 1-week: ${JSON.stringify(ohlc1w.slice(-10))}
+- 1-minute: ${JSON.stringify(ohlcData['1m'].slice(-10))}
+- 5-minute: ${JSON.stringify(ohlcData['5m'].slice(-10))}
+- 15-minute: ${JSON.stringify(ohlcData['15m'].slice(-10))}
+- 60-minute: ${JSON.stringify(ohlcData['60m'].slice(-10))}
+- 240-minute: ${JSON.stringify(ohlcData['240m'].slice(-10))}
+- 1-day: ${JSON.stringify(ohlcData['1d'].slice(-10))}
+- 1-week: ${JSON.stringify(ohlcData['1w'].slice(-10))}
 
 ---
 Example Output:
@@ -89,15 +104,7 @@ Example Output:
     journalInsight,
     timeframeData: {
       ...timeframeData,
-      ohlcData: {
-        1: ohlc1m,
-        5: ohlc5m,
-        15: ohlc15m,
-        60: ohlc60m,
-        240: ohlc240m,
-        1440: ohlc1d,
-        10080: ohlc1w,
-      }
+      ohlcData: ohlcData
     }
   };
 }
