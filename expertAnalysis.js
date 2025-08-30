@@ -51,6 +51,10 @@ Journal: ${JSON.stringify(ctx.journal || [])}
   const journalInsight = journalResponse.response.text();
   log.info('✅ Journal Analysis Complete:', journalInsight);
 
+  // Added a 20-second delay between AI calls to avoid rate limits.
+  log.info('Pausing for 20 seconds before the next AI call...');
+  await new Promise(resolve => setTimeout(resolve, 20000));
+
   // Step 3: AI Call to analyze multiple timeframes and select the most interesting one.
   const timeframePrompt = `
 You are a technical market analyst. Your task is to analyze OHLC data from multiple timeframes and identify which one currently shows the most a clear, tradeable signal (e.g., strong trend, clear support/resistance, a breakout pattern, or a reversal signal).
