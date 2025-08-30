@@ -98,12 +98,24 @@ Example Output:
   log.info('Running AI analysis on multiple timeframes...');
   const timeframeResponse = await model.generateContent(timeframePrompt);
   let timeframeData = {};
-  try {
-    timeframeData = JSON.parse(timeframeResponse.response.text().match(/```json\s*(\{[\s\S]*?\})\s*```/)?.[1] || '{}');
-    log.info('✅ Timeframe Analysis Complete:', timeframeData.reason);
-  } catch (error) {
-    log.error('Error parsing JSON from AI. AI response was:', timeframeResponse.response.text());
-    log.error('Error details:', error);
+  const rawResponseText = timeframeResponse.response.text();
+
+  // New, more robust JSON parsing logic
+  const jsonStartIndex = rawResponseText.indexOf('{');
+  const jsonEndIndex = rawResponseText.lastIndexOf('}');
+
+  if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonStartIndex < jsonEndIndex) {
+    const jsonString = rawResponseText.substring(jsonStartIndex, jsonEndIndex + 1);
+    try {
+      timeframeData = JSON.parse(jsonString);
+      log.info('✅ Timeframe Analysis Complete:', timeframeData.reason);
+    } catch (error) {
+      log.error('Error parsing JSON from AI. AI response was:', rawResponseText);
+      log.error('Error details:', error);
+    }
+  } else {
+    log.warn('Could not find a valid JSON object in the AI response.');
+    log.info('AI response was:', rawResponseText);
   }
 
   return {
