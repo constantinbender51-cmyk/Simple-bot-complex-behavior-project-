@@ -53,7 +53,7 @@ export async function runOnce() {
     // --- P&L ESTIMATION LOGIC ---
     // Capture the state of the open position after the trade
     const postExecutionSnap = await getMarketSnapshot();
-    const postExecutionPosition = postExecutionSnap.position;
+    const postExecutionPosition = postExecutionSnap.position.openPositions;
     const currentPrice = postExecutionSnap.markPrice;
 
     let estimatedRealizedPnL = 0;
@@ -61,12 +61,12 @@ export async function runOnce() {
 
     if (preExecutionPosition && !postExecutionPosition) {
       // Case 1: The position was completely closed
-      estimatedRealizedPnL = (currentPrice - preExecutionPosition.avgEntryPrice) * preExecutionPosition.size;
+      estimatedRealizedPnL = (currentPrice - preExecutionPosition.price) * preExecutionPosition.size;
       log.info(`💰 Estimated P&L: Position completely closed.`);
     } else if (preExecutionPosition && postExecutionPosition && Math.abs(preExecutionPosition.size) > Math.abs(postExecutionPosition.size)) {
       // Case 2: The position was partially closed
       const sizeClosed = Math.abs(preExecutionPosition.size) - Math.abs(postExecutionPosition.size);
-      estimatedRealizedPnL = (currentPrice - preExecutionPosition.avgEntryPrice) * sizeClosed;
+      estimatedRealizedPnL = (currentPrice - preExecutionPosition.price) * sizeClosed;
       log.info(`💰 Estimated P&L: Position partially closed.`);
     } else {
       log.info(`💰 No realized P&L to estimate in this cycle.`);
