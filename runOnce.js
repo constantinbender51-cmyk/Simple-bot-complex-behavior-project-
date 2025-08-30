@@ -1,11 +1,9 @@
-// runOnce.js
 import { getMarketSnapshot } from './marketProxy.js';
 import { decidePlan } from './decisionEngine.js';
 import { interpret } from './interpreter.js';
 import { saveContext, loadContext } from './context.js';
 import { kv } from './redis.js';
 import { log } from './logger.js';
-import PnLCalculator from './pnlCalculator.js';
 import KrakenFuturesApi from './krakenApi.js';
 
 const PAIR = 'PF_XBTUSD';
@@ -14,14 +12,12 @@ const krakenApi = new KrakenFuturesApi(
   process.env.KRAKEN_SECRET_KEY
 );
 
-// Initialize the P&L calculator here
-const pnlCalculator = new PnLCalculator();
+// PnLCalculator has been removed as requested.
 
 async function fetchOHLC(intervalMinutes, count) {
   const since = Math.floor(Date.now() / 1000 - intervalMinutes * 60 * count);
   return krakenApi.fetchKrakenData({ pair: 'XBTUSD', interval: intervalMinutes, since });
 }
-
 
 export async function runOnce() {
   try {
@@ -37,21 +33,44 @@ export async function runOnce() {
       ctx.journal = [];
     }
 
-    // Now calling getMarketSnapshot without the lastProcessedTime parameter
-    // as it was causing an API error. The PnLCalculator will handle filtering.
-    const snap = await getMarketSnapshot();
+    // Capture the state of the open position before the trade
+    const preExecutionSnap = await getMarketSnapshot();
+    const preExecutionPosition = preExecutionSnap.position;
     const ohlc = await fetchOHLC(ctx.ohlcInterval || 5, 400);
-    
+
     const plan = await decidePlan({
-      markPrice: snap.markPrice,
-      position: snap.position,
-      balance: snap.balance,
+      markPrice: preExecutionSnap.markPrice,
+      position: preExecutionPosition,
+      balance: preExecutionSnap.balance,
       ohlc,
       callsLeft
     });
 
-    // 📝 LOGGING: Show the full plan object received from the decision engine.
     log.info('📝 [runOnce] Plan received from decision engine:', JSON.stringify(plan, null, 2));
+
+    await interpret(plan.action);
+
+    // --- P&L ESTIMATION LOGIC ---
+    // Capture the state of the open position after the trade
+    const postExecutionSnap = await getMarketSnapshot();
+    const postExecutionPosition = postExecutionSnap.position;
+    const currentPrice = postExecutionSnap.markPrice;
+
+    let estimatedRealizedPnL = 0;
+    let estimatedFees = 0; // We cannot accurately estimate fees with this method
+
+    if (preExecutionPosition && !postExecutionPosition) {
+      // Case 1: The position was completely closed
+      estimatedRealizedPnL = (currentPrice - preExecutionPosition.avgEntryPrice) * preExecutionPosition.size;
+      log.info(`💰 Estimated P&L: Position completely closed.`);
+    } else if (preExecutionPosition && postExecutionPosition && Math.abs(preExecutionPosition.size) > Math.abs(postExecutionPosition.size)) {
+      // Case 2: The position was partially closed
+      const sizeClosed = Math.abs(preExecutionPosition.size) - Math.abs(postExecutionPosition.size);
+      estimatedRealizedPnL = (currentPrice - preExecutionPosition.avgEntryPrice) * sizeClosed;
+      log.info(`💰 Estimated P&L: Position partially closed.`);
+    } else {
+      log.info(`💰 No realized P&L to estimate in this cycle.`);
+    }
     
     // --- UPDATE CONTEXT IN-MEMORY ---
     const actionEntry = {
@@ -59,41 +78,20 @@ export async function runOnce() {
       reason: plan.reason,
       action: plan.action,
       marketData: {
-        markPrice: snap.markPrice,
-        position: snap.position,
-        balance: snap.balance,
+        markPrice: preExecutionSnap.markPrice,
+        position: preExecutionSnap.position,
+        balance: preExecutionSnap.balance,
+      },
+      pnlEstimate: {
+        realizedPnL: estimatedRealizedPnL,
+        fees: estimatedFees,
       },
       type: 'bot_action'
     };
     ctx.journal.push(actionEntry);
 
-    // 📝 LOGGING: Show the specific action being passed to the interpreter.
     log.info('🚀 [runOnce] Passing action to interpreter:', JSON.stringify(plan.action, null, 2));
 
-    await interpret(plan.action);
-
-    // --- NEW P&L CALCULATION AND JOURNALING ---
-    // Pass the full list of fills to the PnLCalculator, which will handle filtering
-    // and processing only the new ones.
-    const { newFills, realizedPnL, totalFees, tradeCount } = await pnlCalculator.calculateAndSavePnL(snap.fills);
-    
-    let pnlEventsAdded = 0;
-    if (newFills.length > 0) {
-      // Create journal entries for each new fill for a detailed record
-      newFills.forEach(fill => {
-        const pnlEvent = {
-          fillTime: new Date(fill.fillTime).toISOString(),
-          pair: fill.symbol,
-          size: fill.size,
-          price: fill.price,
-          type: 'fill_event',
-          fillType: fill.fillType,
-        };
-        ctx.journal.push(pnlEvent);
-        pnlEventsAdded++;
-      });
-    }
-    
     // --- SAVE ONCE, AT THE END ---
     const finalCtx = {
         journal: ctx.journal,
@@ -107,9 +105,8 @@ export async function runOnce() {
 
     log.info('✅ Cycle complete. Plan:', plan);
     log.info(`📖 Journal: Current length is ${finalCtx.journal.length}.`);
-    log.info(`📈 P&L Events: Added ${pnlEventsAdded} new fill events.`);
-    log.info(`💰 Realized P&L from this cycle: ${realizedPnL}, Fees: ${totalFees}`);
-
+    log.info(`📈 Estimated Realized P&L from this cycle: ${estimatedRealizedPnL}`);
+    
     return plan;
   } catch (e) {
     console.error('runOnce failed:', e);
