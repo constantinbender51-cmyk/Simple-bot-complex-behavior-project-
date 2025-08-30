@@ -26,7 +26,7 @@ export class StrategyEngine {
     log.info('Remaining API Calls:', callsLeft);
 
     const posSize = position ? (+position.size) * (position.side === 'long' ? 1 : -1) : 0;
-    const openPnl = position ? (+position.upl || 0) : 0;
+    const openPnl = position ? (+position.pnl || 0) : 0;
     const ctx = await loadContext();
     
     // Get expert insights from the separate analysis module
