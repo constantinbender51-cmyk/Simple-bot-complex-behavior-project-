@@ -145,6 +145,20 @@ or
 }
 \`\`\`
 `;
+
+    console.log("Starting prompt logging for test run...");
+
+    // Split the prompt and print in chunks with a delay
+    const chunkSize = 2000;
+    for (let i = 0; i < prompt.length; i += chunkSize) {
+      const chunk = prompt.substring(i, i + chunkSize);
+      console.log(chunk);
+      // Wait for 1 second
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    console.log("Prompt logging complete.");
+
     const raw = (await model.generateContent(prompt)).response.text();
     return JSON.parse(raw.match(/```json\s*(\{[\s\S]*?\})\s*```/)?.[1] || '{}');
   }
