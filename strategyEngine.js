@@ -1,7 +1,7 @@
-// strategyEngine.js
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google-genai/generative-ai';
 import { loadContext } from './context.js';
 import { log } from './logger.js';
+import { getExpertInsights } from './expertAnalysis.js';
 
 // Initialize the Generative AI client with the API key.
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -18,7 +18,7 @@ export class StrategyEngine {
    * @param {number} params.callsLeft - Remaining API calls for the day.
    * @returns {Promise<object>} A JSON object containing the new trading plan.
    */
-  async generatePlan({ markPrice, position, balance, ohlc, callsLeft }) {
+  async generatePlan({ markPrice, position, balance, callsLeft }) {
     // Log each element passed into the function for analysis and debugging.
     log.info('Current Mark Price:', markPrice);
     log.info('Current Position:', position);
@@ -29,6 +29,10 @@ export class StrategyEngine {
     const openPnl = position ? (+position.upl || 0) : 0;
     const ctx = await loadContext();
     
+    // Get expert insights from the separate analysis module
+    const { journalInsight, timeframeData } = await getExpertInsights();
+    const selectedOhlc = timeframeData.ohlcData[timeframeData.bestTimeframe] || [];
+
     // The core prompt has been updated to use percentages for position sizing,
     // making the strategy scalable based on the account's margin.
     const prompt = `
@@ -42,11 +46,17 @@ Here is all the information you need:
 - Account Margin: ${balance}
 - Trading Constraints: Max position size is 900% of account margin. Minimum tick size is 0.0001 BTC. Use leverage by increasing your position size up to 9x your margin.
 - OHLC and Wait Time Intervals: Possible values are 1, 5, 15, 30, 60, 240, 1440, 10080, 21600 (in minutes). You must choose one of these values for your nextCtx.ohlcInterval and action.waitTime.
-- OHLC Data (last ${ohlc.length} candles): ${JSON.stringify(ohlc)}
+- OHLC Data (last ${selectedOhlc.length} candles) for the selected timeframe (${timeframeData.bestTimeframe} minutes): ${JSON.stringify(selectedOhlc)}
 - Your Persistent Memory (journal of past thoughts and actions): ${JSON.stringify(ctx.journal || [])}
 - Your current state (context from previous run): ${JSON.stringify(ctx.nextCtx || {})}
 - API Calls Remaining Today: ${callsLeft} / 500
 
+---
+### Expert Analysis Provided by Sub-AIs:
+- **Journal Insights:** ${journalInsight}
+- **Timeframe Analysis:** The best timeframe to trade on is the ${timeframeData.bestTimeframe}-minute chart. The primary signal is: ${timeframeData.signalSummary}
+
+---
 Your task:
 1.  **Analyze the market** to identify trends, support/resistance levels, and volatility.
 2.  **Evaluate your current position** and a potential new plan. Should you scale in? Scale out? Reverse your position?
@@ -65,7 +75,7 @@ You are not limited to the examples below. You have the freedom to invent and ap
 * **Initiating a New Trade from an Idle State:** "I am currently in an 'idle' state. My analysis of the recent OHLC data shows a clear bullish trend with strong volume on the 5-minute chart. I have detected a valid entry signal and will initiate a long position of 1% of my account margin with a stop-loss and take-profit target to manage risk."
 * **Confirming a Breakout Before Entry:** "I am in an 'idle' state, but my analysis shows the price is at a significant resistance level of 110,500. I will not enter a position yet. My state will be set to 'awaiting_breakout', and I will wait for a confirmed candle close above this resistance level before I consider opening a long position."
 * **Scalping with Bid/Ask Spread:** "I am currently in an 'idle' state. The spread between the current bid and ask is wider than normal. This is a high-liquidity opportunity, so I will place a small buy order at the bid and wait for a new ask to open a profitable exit. My state will be set to 'awaiting_exit'."
-* **Volatility-Based Breakout Entry:** "The price has been consolidating in a very narrow range for the last two hours, and the Bollinger Bands have narrowed significantly, indicating low volatility. This often precedes a major price move. I will not enter a position yet. I will set my state to 'awaiting_volatility_breakout' and wait for a decisive move and a corresponding increase in volume before entering a trade in the direction of the breakout."
+* **Volatility-Based Breakout Entry:** "The price has been consolidating in a very narrow range for the last two hours, and the Bollinger Bands have narrowed significantly, indicating low volatility. This often precedes a major price move. I will not enter a position yet. I will set my state to 'awaiting_volatility_breakout', and I will wait for a decisive move and a corresponding increase in volume before entering a trade in the direction of the breakout."
 * **Fibonacci Retracement Entry:** "I am currently in an 'idle' state. After a recent significant price drop, the market is now retracing. It has just reached the 61.8% Fibonacci level, which is a common reversal point. I will initiate a small long position of 0.5% of my account margin with a take-profit target at the previous high."
 * **RSI Divergence Signal:** "The price is making a new low, but the Relative Strength Index (RSI) is failing to confirm this with a new low of its own, creating a bullish divergence. This is a strong reversal signal. I will open a long position of 2% of my account margin and set a stop-loss just below the recent price low."
 
