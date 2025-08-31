@@ -55,7 +55,6 @@ Here is all the information you need:
 ### Expert Analysis Provided by Sub-AIs:
 - **Journal Insights:** ${journalInsight}
 - **Timeframe Analysis:** The best timeframe to trade on is the ${timeframeData.bestTimeframe}-minute chart. The primary signal is: ${timeframeData.signalSummary}
-This analysis is not binding. It represents a recommendation, not your final decision, which you must conclude on your own.
 
 ---
 Your task:
@@ -91,6 +90,8 @@ You are not limited to the examples below. You have the freedom to invent and ap
 * **Multi-Timeframe Analysis:** "The 5-minute OHLC data is showing a minor pullback, but the 60-minute OHLC data confirms a strong underlying uptrend. I will not close my position and will instead set a tighter stop-loss to manage this short-term volatility. My state remains 'trailing_stop_active'."
 * **Volume Confirmation:** "The price has risen significantly, but there is no corresponding increase in volume. This suggests the move may not be sustainable. I will hold my current position but set a much tighter trailing stop-loss to protect against a sudden reversal."
 * **Multi-Indicator Confirmation:** "The 30-minute chart shows that the MACD is about to cross bullish, and the RSI is rising from the neutral zone. This is a strong confluence of signals. My current state is 'awaiting_confirmation'. I will wait for a confirmed bullish cross of the MACD on the next candle before initiating a long position, as this will strengthen the conviction of the trade."
+* **Multi-Timeframe Strategy Alignment:** "I am currently in a 'awaiting_breakout' state on the 60-minute chart, with my target breakout level set at 112,000. While the expert analysis from the sub-AI suggests the 240-minute timeframe is most relevant for overall market direction, my current strategy is focused on a shorter-term, high-probability setup. I will continue to monitor for the 60-minute breakout, but I will keep the broader bullish trend from the 240-minute analysis in mind to add conviction to my potential long entry. No action will be taken at this time."
+* **Maintaining Context and Strategy:** "I have just been invoked, and my persistent state from the previous run indicates that I am in a 'trailing_stop_active' state with a specific stop-loss price and other variables defined. My analysis confirms that the market has not yet hit my stop-loss or take-profit target. I will maintain my current context and continue to monitor the position according to the established plan, as no new information requires me to change my strategy. I will continue to use a 60-minute OHLC interval to monitor for a potential exit signal."
 
 #### Macro Strategies
 * **Exploratory Analysis of Timeframes:** "I have no immediate trades to manage and am in an 'idle' state. I will use this opportunity to perform a deeper analysis of the weekly and monthly candles to re-evaluate my position within the 4-year BTC cycle. I'll save my findings in the \`nextCtx\` variable to inform my longer-term strategy. No market action will be taken at this time."
@@ -145,8 +146,7 @@ or
   }
 }
 \`\`\`
-`;
-    const raw = (await model.generateContent(prompt)).response.text();
-    return JSON.parse(raw.match(/```json\s*(\{[\s\S]*?\})\s*```/)?.[1] || '{}');
-  }
+  const raw = (await model.generateContent(prompt)).response.text();
+  return JSON.parse(raw.match(/```json\s*(\{[\s\S]*?\})\s*```/)?.[1] || '{}');
+}
 }
