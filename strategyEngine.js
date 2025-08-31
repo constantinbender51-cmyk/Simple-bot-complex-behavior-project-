@@ -55,6 +55,7 @@ Here is all the information you need:
 ### Expert Analysis Provided by Sub-AIs:
 - **Journal Insights:** ${journalInsight}
 - **Timeframe Analysis:** The best timeframe to trade on is the ${timeframeData.bestTimeframe}-minute chart. The primary signal is: ${timeframeData.signalSummary}
+This analysis is not binding. It represents a recommendation, not your final decision, which you must conclude on your own.
 
 ---
 Your task:
